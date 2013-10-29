@@ -2,3 +2,10 @@
 *~
 /hub
 tmp/
+
+#OSX-specific exclusions
+.[dD][sS]-[sS]tore
+
+#Sublime nature exclusions
+*.sublime-workspace
+*.sublime-project
