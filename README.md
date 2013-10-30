@@ -1,17 +1,29 @@
-git + hub = github
+git + hub + ???? = oblong-hub
 ==================
 
-hub is a command line tool that wraps `git` in order to extend it with extra
-features and commands that make working with GitHub easier.
+[hub](https://github.com/github/hub) is a command line tool that wraps `git` in 
+order to extend it with extra features and commands that make working with 
+GitHub easier.
 
-~~~ sh
-$ hub clone rtomayko/tilt
+`oblong-hub` is a fork of `hub` that @Oblongmana uses, and maybe some of the 
+people at @Trineo might as well maybe. This is particularly oriented towards 
+@ForceDotCom development using [Sublime Text](http://www.sublimetext.com/) 
+(especially ST3), with the [kemayo/sublime-text-git]
+(https://github.com/kemayo/sublime-text-git/) plugin, and the [MavensMate]
+(https://github.com/joeferraro/MavensMate) server + plugin, running on OSX.
 
-# expands to:
-$ git clone git://github.com/rtomayko/tilt.git
-~~~
+However, it doesn't require any of the above. Probably. Should just be doing 
+`git` things, nothing else. If it is doing something else, that's probably a 
+bug. Except maybe the OSX requirement. Should hopefully work ok on linux, but
+I'm not touching Windows with a barge-pole. If core `hub` works on Windows,
+you're probably ok though. Maybe.
 
-hub is best aliased as `git`, so you can type `$ git <command>` in the shell and
+I'll do my best to keep this up to speed with the main `hub` repo, so this 
+provides enhancement without holding you back.
+
+This can't be installed alongside core `hub` - as it is in fact `hub` + stuff
+
+`hub` is best aliased as `git`, so you can type `$ git <command>` in the shell and
 get all the usual `hub` features. See "Aliasing" below.
 
 
@@ -23,23 +35,15 @@ Dependencies:
 * **git 1.7.3** or newer
 * **Ruby 1.8.6** or newer
 
-### Homebrew
-
-Installing on OS X is easiest with Homebrew:
-
-~~~ sh
-$ brew install hub
-~~~
-
 ### `rake install` from source
 
-This is the preferred installation method without when no package manager that
-supports hub is available:
+Unlike the core `hub`, this can only be installed through rake install from source.
+This can't be installed alongside core `hub`. 
 
 ~~~ sh
-# Download or clone the project from GitHub:
-$ git clone git://github.com/github/hub.git
-$ cd hub
+# Clone the project from GitHub:
+$ git clone git@github.com:Oblongmana/oblong-hub.git
+$ cd oblong-hub
 $ rake install
 ~~~
 
@@ -53,76 +57,9 @@ git version 1.7.6
 hub version 1.8.3
 ~~~
 
-#### Windows "Git Bash" (msysGit) note
-
-Avoid aliasing hub as `git` due to the fact that msysGit automatically
-configures your prompt to include git information, and you want to avoid slowing
-that down. See [Is your shell prompt slow?](#is-your-shell-prompt-slow)
-
-### RubyGems
-
-Though not recommended, hub can also be installed as a RubyGem:
-
-~~~ sh
-$ gem install hub
-~~~
-
-(It's not recommended for casual use because of the RubyGems startup
-time. See [this gist][speed] for information.)
-
-#### Standalone via RubyGems
-
-~~~ sh
-$ gem install hub
-$ hub hub standalone > ~/bin/hub && chmod +x ~/bin/hub
-~~~
-
-This installs a standalone version which doesn't require RubyGems to
-run, so it's faster.
-
 ### Help! It's slow!
 
-#### Is `hub` noticeably slower than plain git?
-
-That is inconvenient, especially if you want to alias hub as `git`. Few things
-you can try:
-
-* Find out which ruby is used for the hub executable:
-
-    ``` sh
-    head -1 `which hub`
-    ```
-
-* That ruby should be speedy. Time it with:
-
-    ``` sh
-    time /usr/bin/ruby -e0
-    #=> it should be below 0.01 s total
-    ```
-
-* Check that Ruby isn't loading something shady:
-
-    ``` sh
-    echo $RUBYOPT
-    ```
-
-* Check your [GC settings][gc]
-
-General recommendation: you should change hub's shebang line to run with system
-ruby (usually `/usr/bin/ruby`) instead of currently active ruby (`/usr/bin/env
-ruby`). Also, Ruby 1.8 is speedier than 1.9.
-
-#### Is your shell prompt slow?
-
-Does your prompt show git information? Hub may be slowing down your prompt.
-
-This can happen if you've aliased hub as `git`. This is fine when you use `git`
-manually, but may be unacceptable for your prompt, which doesn't need hub
-features anyway!
-
-The solution is to identify which shell functions are calling `git`, and replace
-each occurrence of that with `command git`. This is a shell feature that enables
-you to call a command directly and skip aliases and functions wrapping it.
+Check out the section on slowness in the core [hub](https://github.com/github/hub)
 
 
 Aliasing
@@ -145,12 +82,34 @@ eval "$(hub alias -s)"
 hub repository contains tab-completion scripts for bash and zsh. These scripts
 complement existing completion scripts that ship with git.
 
+Disclaimer: I haven't touched this in `oblong-hub` - it's somewhere on a todo 
+list (and may not necessarily need messing with)
+
 * [hub bash completion](https://github.com/github/hub/blob/master/etc/hub.bash_completion.sh)
 * [hub zsh completion](https://github.com/github/hub/blob/master/etc/hub.zsh_completion)
 
 
+Use in MavensMate with kemayo/git
+--------
+Open your User Settings for the kemayo/git package, and add the following:
+
+    "git_command": "/usr/local/bin/hub"
+
+As kemayo/git invokes the git program directly, this simply tells it that the 
+git program it should be invoking is our hub program.
+
+In future, I aim to fork kemayo/git and add some of the `hub` specific features
+
+
 Commands
 --------
+
+Disclaimer: I haven't touched this section of the README much in `oblong-hub` - 
+I found there were a few things missing from this list that were features in 
+core `hub`, so caveat emptor. The source isn't super crazy to read (check out
+[lib/hub/commands.rb](lib/hub/commands.rb), and the methods have comments up
+indicating usage where standard git has been extended. This is on a todo to look
+at eventually, maybe. Have added to [git init](git init) below, check that out
 
 Assuming you've aliased hub as `git`, the following commands now have
 superpowers:
@@ -272,6 +231,12 @@ superpowers:
     > git init
     > git remote add origin git@github.com:YOUR_USER/REPO.git
 
+    $ hub init [-s | --salesforce]
+    > git init
+    > curl -#o .gitignore https://gist.github.com/Oblongmana/7130387/raw/.gitignore-sf
+    > touch README.md
+    > git remote add origin git@github.com:USER/REPO.git
+
 ### git push
 
     $ git push origin,staging,qa bert_timeout
@@ -374,7 +339,7 @@ These instructions assume that _you already have hub installed_ and aliased as
 `git` (see "Aliasing").
 
 1. Clone hub:  
-    `git clone github/hub && cd hub`
+    `git clone oblongmana/oblong-hub && cd oblong-hub`
 1. Ensure Bundler is installed:  
     `which bundle || gem install bundler`
 1. Install development dependencies:  
@@ -394,22 +359,12 @@ These instructions assume that _you already have hub installed_ and aliased as
     `git pull-request`
 
 
-Meta
-----
-
-* Home: <https://github.com/github/hub>
-* Bugs: <https://github.com/github/hub/issues>
-* Gem: <https://rubygems.org/gems/hub>
-* Authors: <https://github.com/github/hub/contributors>
-
 ### Prior art
 
 These projects also aim to either improve git or make interacting with
 GitHub simpler:
 
+* [hub](https://github.com/github/hub)
 * [eg](http://www.gnome.org/~newren/eg/)
 * [github-gem](https://github.com/defunkt/github-gem)
 
-
-[speed]: http://gist.github.com/284823
-[gc]: https://twitter.com/brynary/status/49560668994674688
