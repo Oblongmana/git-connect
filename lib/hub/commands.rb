@@ -507,8 +507,19 @@ module Hub
     # > git apply /tmp/55.patch
     alias_method :apply, :am
 
+    # -s and -g are compatible and both will be executed if indicated
+    # TODO: work out how to update the doc
+    # TODO: work out how to write tests
+    # TODO: work out why tests were failing before I even started work!
+    # 
     # $ hub init -g
     # > git init
+    # > git remote add origin git@github.com:USER/REPO.git
+    # 
+    # $ hub init [-s | --salesforce]
+    # > git init
+    # > curl -#o .gitignore https://gist.github.com/Oblongmana/7130387/raw/.gitignore-sf
+    # > touch README.md
     # > git remote add origin git@github.com:USER/REPO.git
     def init(args)
       if args.delete('-g')
@@ -516,6 +527,19 @@ module Hub
         url = project.git_url(:private => true, :https => https_protocol?)
         args.after ['remote', 'add', 'origin', url]
       end
+      if args.include?('-s') || args.include?('--salesforce')
+        args.delete('-s')
+        args.delete('--salesforce')
+        # block...not needed I think now. Work out all or nothing approach shiz later? or don't
+        # args.after { 
+        # }
+        # args << "-q"
+        # just playing around! # $stdout.puts github_project('oblong-hub','Oblongmana')
+        args.after "echo", ["Retrieving Standard .gitignore"] 
+        args.after "curl", ["-#o", ".gitignore", "https://gist.github.com/Oblongmana/7130387/raw/.gitignore-sf"]
+        args.after "echo", ["Creating empty README.md"] 
+        args.after "touch", ["README.md"]
+      end 
     end
 
     # $ hub fork
