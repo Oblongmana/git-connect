@@ -5,12 +5,14 @@ git + hub + ???? = oblong-hub
 order to extend it with extra features and commands that make working with 
 GitHub easier.
 
-`oblong-hub` is a fork of `hub` that @Oblongmana uses, and maybe some of the 
-people at @Trineo might as well maybe. This is particularly oriented towards 
-@ForceDotCom development using [Sublime Text](http://www.sublimetext.com/) 
-(especially ST3), with the [kemayo/sublime-text-git]
-(https://github.com/kemayo/sublime-text-git/) plugin, and the [MavensMate]
-(https://github.com/joeferraro/MavensMate) server + plugin, running on OSX.
+`oblong-hub` is a fork of `hub` that [@Oblongmana]
+(https://github.com/Oblongmana) uses, and maybe some of the folks at [@Trineo]
+(https://github.com/Trineo) might as well maybe. This is particularly oriented 
+towards [@ForceDotCom](https://github.com/ForceDotCom) development using 
+[Sublime Text](http://www.sublimetext.com/) (especially ST3), with the 
+[kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) plugin, 
+and the [MavensMate](https://github.com/joeferraro/MavensMate) server + plugin, 
+running on OSX.
 
 However, it doesn't require any of the above. Probably. Should just be doing 
 `git` things, nothing else. If it is doing something else, that's probably a 
@@ -89,16 +91,20 @@ list (and may not necessarily need messing with)
 * [hub zsh completion](https://github.com/github/hub/blob/master/etc/hub.zsh_completion)
 
 
-Use in MavensMate with kemayo/git
+Use with [MavensMate](https://github.com/joeferraro/MavensMate) and [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) in Sublime Text
 --------
-Open your User Settings for the kemayo/git package, and add the following:
+Open your User Settings for the [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) package, and add the following:
 
+~~~ json
+{
     "git_command": "/usr/local/bin/hub"
+}
+~~~
 
-As kemayo/git invokes the git program directly, this simply tells it that the 
+As [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) invokes the git program directly, this simply tells it that the 
 git program it should be invoking is our hub program.
 
-In future, I aim to fork kemayo/git and add some of the `hub` specific features
+In future, I aim to fork [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) and add some of the `hub` specific features
 
 
 Commands
