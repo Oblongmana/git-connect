@@ -115,7 +115,7 @@ I found there were a few things missing from this list that were features in
 core `hub`, so caveat emptor. The source isn't super crazy to read (check out
 [lib/hub/commands.rb](lib/hub/commands.rb), and the methods have comments up
 indicating usage where standard git has been extended. This is on a todo to look
-at eventually, maybe. Have added to [git init](git init) below, check that out
+at eventually, maybe. Have added to [git init](#git-init) below, check that out
 
 Assuming you've aliased hub as `git`, the following commands now have
 superpowers:
