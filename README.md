@@ -11,7 +11,7 @@ GitHub easier.
 towards [@ForceDotCom](https://github.com/ForceDotCom) development using 
 [Sublime Text](http://www.sublimetext.com/) (especially ST3), with the 
 [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) plugin, 
-and the [MavensMate](https://github.com/joeferraro/MavensMate) server + plugin, 
+and the [joeferraro/MavensMate](https://github.com/joeferraro/MavensMate) server + plugin, 
 running on OSX.
 
 However, it doesn't require any of the above. Probably. Should just be doing 
@@ -91,7 +91,7 @@ list (and may not necessarily need messing with)
 * [hub zsh completion](https://github.com/github/hub/blob/master/etc/hub.zsh_completion)
 
 
-Use with [MavensMate](https://github.com/joeferraro/MavensMate) and [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) in Sublime Text
+Use with [joeferraro/MavensMate](https://github.com/joeferraro/MavensMate) and [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) in Sublime Text
 --------
 Open your User Settings for the [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) package, and add the following:
 
