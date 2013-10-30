@@ -241,7 +241,6 @@ superpowers:
     > git init
     > curl -#o .gitignore https://gist.github.com/Oblongmana/7130387/raw/.gitignore-sf
     > touch README.md
-    > git remote add origin git@github.com:USER/REPO.git
 
 ### git push
 
