@@ -6,3 +6,4 @@
  ☐ Add git nuke path/to/file_to_/nuke to readme
  ☐ Work out why tests were failing before I even started work!
  ☐ Work out why a bunch of stuff out of man/hub.* disappeared in 5f94a76..57de1db
+ ☐ Can the multi-stage git init -s happen in a transactional way?

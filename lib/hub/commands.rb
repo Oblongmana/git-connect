@@ -569,11 +569,6 @@ module Hub
       if args.include?('-s') || args.include?('--salesforce')
         args.delete('-s')
         args.delete('--salesforce')
-        # block...not needed I think now. Work out all or nothing approach shiz later? or don't
-        # args.after { 
-        # }
-        # args << "-q"
-        # just playing around! # $stdout.puts github_project('oblong-hub','Oblongmana')
         args.after "echo", ["Retrieving Standard .gitignore"] 
         args.after "curl", ["-#o", ".gitignore", "https://gist.github.com/Oblongmana/7130387/raw/.gitignore-sf"]
         args.after "echo", ["Creating empty README.md"] 
