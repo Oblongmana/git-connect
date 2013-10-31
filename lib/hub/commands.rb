@@ -38,7 +38,7 @@ module Hub
     OWNER_RE = /[a-zA-Z0-9][a-zA-Z0-9-]*/
     NAME_WITH_OWNER_RE = /^(?:#{NAME_RE}|#{OWNER_RE}\/#{NAME_RE})$/
 
-    CUSTOM_COMMANDS = %w[alias create browse compare fork pull-request ci-status]
+    CUSTOM_COMMANDS = %w[alias create browse compare fork pull-request ci-status nuke]
 
     def run(args)
       slurp_global_flags(args)
@@ -296,6 +296,44 @@ module Hub
       end
     end
 
+    # Make it appear that a file never existed!
+    # https://help.github.com/articles/remove-sensitive-data
+    # 
+    # $ hub nuke path/to/file_to_nuke
+    def nuke(args)
+      args.shift
+      nukee = args.shift
+
+      abort "Usage: hub nuke path/to/file_to_expunge_from_history" unless nukee
+
+      unless git_command("log --all -- #{nukee}")   
+        abort <<-BLOCK.gsub(/^[^\S\n]+/, '')
+
+          Error: #{nukee} 
+          This file has never been tracked in this repo. If the file has not 
+          previously been comitted and you want to avoid committing it, add it to your 
+          .gitignore. If you are certain exists or has previously, please 
+          ensure you have entered the correct path to the file, not just the filename.
+
+        BLOCK
+      end
+            
+
+      args.push(*["filter-branch","--force","--index-filter","git rm --cached --ignore-unmatch #{nukee}","--prune-empty","--tag-name-filter","cat","--","--all"]);
+
+      args.after "echo", [<<-BLOCK.gsub(/^[^\S\n\t]+/, '')
+
+            Success: #{nukee}
+            The file has been expunged from local history. You can now force push changes 
+            to each remote and each branch you want the file expunged from.
+
+            For example, to expunge from the branch "master" on the remote "origin", use 
+                \tgit push origin master --force
+
+          BLOCK
+        ]
+    end
+
     # $ hub submodule add wycats/bundler vendor/bundler
     # > git submodule add git://github.com/wycats/bundler.git vendor/bundler
     #
@@ -527,6 +565,7 @@ module Hub
         url = project.git_url(:private => true, :https => https_protocol?)
         args.after ['remote', 'add', 'origin', url]
       end
+
       if args.include?('-s') || args.include?('--salesforce')
         args.delete('-s')
         args.delete('--salesforce')
@@ -540,6 +579,7 @@ module Hub
         args.after "echo", ["Creating empty README.md"] 
         args.after "touch", ["README.md"]
       end 
+
     end
 
     # $ hub fork
@@ -917,6 +957,7 @@ GitHub Commands:
    browse         Open a GitHub page in the default browser
    compare        Open a compare page on GitHub
    ci-status      Show the CI status of a commit
+   nuke           Completely expunge a file from the repository history
 
 See 'git help <command>' for more information on a specific command.
 help

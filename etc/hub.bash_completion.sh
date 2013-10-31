@@ -17,6 +17,7 @@ create
 browse
 compare
 ci-status
+nuke
 EOF
     __git_list_all_commands_without_hub
   }

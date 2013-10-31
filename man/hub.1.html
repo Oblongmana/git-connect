@@ -236,207 +236,21 @@ variable:</p>
 
 <h2 id="EXAMPLES">EXAMPLES</h2>
 
-<h3 id="git-clone">git clone</h3>
+<p>Open your User Settings for the <a href="https://github.com/kemayo/sublime-text-git/">kemayo/sublime-text-git</a> package, and add the following:</p>
 
-<pre><code>$ git clone schacon/ticgit
-&gt; git clone git://github.com/schacon/ticgit.git
+<p>~~~ json
+{</p>
 
-$ git clone -p schacon/ticgit
-&gt; git clone git@github.com:schacon/ticgit.git
-
-$ git clone resque
-&gt; git clone git@github.com/YOUR_USER/resque.git
+<pre><code>"git_command": "/usr/local/bin/hub"
 </code></pre>
 
-<h3 id="git-remote-add">git remote add</h3>
+<p>}
+~~~</p>
 
-<pre><code>$ git remote add rtomayko
-&gt; git remote add rtomayko git://github.com/rtomayko/CURRENT_REPO.git
+<p>As <a href="https://github.com/kemayo/sublime-text-git/">kemayo/sublime-text-git</a> invokes the git program directly, this simply tells it that the
+git program it should be invoking is our hub program.</p>
 
-$ git remote add -p rtomayko
-&gt; git remote add rtomayko git@github.com:rtomayko/CURRENT_REPO.git
-
-$ git remote add origin
-&gt; git remote add origin git://github.com/YOUR_USER/CURRENT_REPO.git
-</code></pre>
-
-<h3 id="git-fetch">git fetch</h3>
-
-<pre><code>$ git fetch mislav
-&gt; git remote add mislav git://github.com/mislav/REPO.git
-&gt; git fetch mislav
-
-$ git fetch mislav,xoebus
-&gt; git remote add mislav ...
-&gt; git remote add xoebus ...
-&gt; git fetch --multiple mislav xoebus
-</code></pre>
-
-<h3 id="git-cherry-pick">git cherry-pick</h3>
-
-<pre><code>$ git cherry-pick http://github.com/mislav/REPO/commit/SHA
-&gt; git remote add -f mislav git://github.com/mislav/REPO.git
-&gt; git cherry-pick SHA
-
-$ git cherry-pick mislav@SHA
-&gt; git remote add -f mislav git://github.com/mislav/CURRENT_REPO.git
-&gt; git cherry-pick SHA
-
-$ git cherry-pick mislav@SHA
-&gt; git fetch mislav
-&gt; git cherry-pick SHA
-</code></pre>
-
-<h3 id="git-am-git-apply">git am, git apply</h3>
-
-<pre><code>$ git am https://github.com/defunkt/hub/pull/55
-&gt; curl https://github.com/defunkt/hub/pull/55.patch -o /tmp/55.patch
-&gt; git am /tmp/55.patch
-
-$ git am --ignore-whitespace https://github.com/davidbalbert/hub/commit/fdb9921
-&gt; curl https://github.com/davidbalbert/hub/commit/fdb9921.patch -o /tmp/fdb9921.patch
-&gt; git am --ignore-whitespace /tmp/fdb9921.patch
-
-$ git apply https://gist.github.com/8da7fb575debd88c54cf
-&gt; curl https://gist.github.com/8da7fb575debd88c54cf.txt -o /tmp/gist-8da7fb575debd88c54cf.txt
-&gt; git apply /tmp/gist-8da7fb575debd88c54cf.txt
-</code></pre>
-
-<h3 id="git-fork">git fork</h3>
-
-<pre><code>$ git fork
-[ repo forked on GitHub ]
-&gt; git remote add -f YOUR_USER git@github.com:YOUR_USER/CURRENT_REPO.git
-</code></pre>
-
-<h3 id="git-pull-request">git pull-request</h3>
-
-<pre><code># while on a topic branch called "feature":
-$ git pull-request
-[ opens text editor to edit title &amp; body for the request ]
-[ opened pull request on GitHub for "YOUR_USER:feature" ]
-
-# explicit title, pull base &amp; head:
-$ git pull-request -m "Implemented feature X" -b defunkt:master -h mislav:feature
-
-$ git pull-request -i 123
-[ attached pull request to issue #123 ]
-</code></pre>
-
-<h3 id="git-checkout">git checkout</h3>
-
-<pre><code>$ git checkout https://github.com/defunkt/hub/pull/73
-&gt; git remote add -f -t feature git://github:com/mislav/hub.git
-&gt; git checkout --track -B mislav-feature mislav/feature
-
-$ git checkout https://github.com/defunkt/hub/pull/73 custom-branch-name
-</code></pre>
-
-<h3 id="git-merge">git merge</h3>
-
-<pre><code>$ git merge https://github.com/defunkt/hub/pull/73
-&gt; git fetch git://github.com/mislav/hub.git +refs/heads/feature:refs/remotes/mislav/feature
-&gt; git merge mislav/feature --no-ff -m 'Merge pull request #73 from mislav/feature...'
-</code></pre>
-
-<h3 id="git-create">git create</h3>
-
-<pre><code>$ git create
-[ repo created on GitHub ]
-&gt; git remote add origin git@github.com:YOUR_USER/CURRENT_REPO.git
-
-# with description:
-$ git create -d 'It shall be mine, all mine!'
-
-$ git create recipes
-[ repo created on GitHub ]
-&gt; git remote add origin git@github.com:YOUR_USER/recipes.git
-
-$ git create sinatra/recipes
-[ repo created in GitHub organization ]
-&gt; git remote add origin git@github.com:sinatra/recipes.git
-</code></pre>
-
-<h3 id="git-init">git init</h3>
-
-<pre><code>$ git init -g
-&gt; git init
-&gt; git remote add origin git@github.com:YOUR_USER/REPO.git
-</code></pre>
-
-<h3 id="git-push">git push</h3>
-
-<pre><code>$ git push origin,staging,qa bert_timeout
-&gt; git push origin bert_timeout
-&gt; git push staging bert_timeout
-&gt; git push qa bert_timeout
-</code></pre>
-
-<h3 id="git-browse">git browse</h3>
-
-<pre><code>$ git browse
-&gt; open https://github.com/YOUR_USER/CURRENT_REPO
-
-$ git browse -- commit/SHA
-&gt; open https://github.com/YOUR_USER/CURRENT_REPO/commit/SHA
-
-$ git browse -- issues
-&gt; open https://github.com/YOUR_USER/CURRENT_REPO/issues
-
-$ git browse schacon/ticgit
-&gt; open https://github.com/schacon/ticgit
-
-$ git browse schacon/ticgit commit/SHA
-&gt; open https://github.com/schacon/ticgit/commit/SHA
-
-$ git browse resque
-&gt; open https://github.com/YOUR_USER/resque
-
-$ git browse resque network
-&gt; open https://github.com/YOUR_USER/resque/network
-</code></pre>
-
-<h3 id="git-compare">git compare</h3>
-
-<pre><code>$ git compare refactor
-&gt; open https://github.com/CURRENT_REPO/compare/refactor
-
-$ git compare 1.0..1.1
-&gt; open https://github.com/CURRENT_REPO/compare/1.0...1.1
-
-$ git compare -u fix
-&gt; (https://github.com/CURRENT_REPO/compare/fix)
-
-$ git compare other-user patch
-&gt; open https://github.com/other-user/REPO/compare/patch
-</code></pre>
-
-<h3 id="git-submodule">git submodule</h3>
-
-<pre><code>$ hub submodule add wycats/bundler vendor/bundler
-&gt; git submodule add git://github.com/wycats/bundler.git vendor/bundler
-
-$ hub submodule add -p wycats/bundler vendor/bundler
-&gt; git submodule add git@github.com:wycats/bundler.git vendor/bundler
-
-$ hub submodule add -b ryppl --name pip ryppl/pip vendor/pip
-&gt; git submodule add -b ryppl --name pip git://github.com/ryppl/pip.git vendor/pip
-</code></pre>
-
-<h3 id="git-ci-status">git ci-status</h3>
-
-<pre><code>$ hub ci-status [commit]
-&gt; (prints CI state of commit and exits with appropriate code)
-&gt; One of: success (0), error (1), failure (1), pending (2), no status (3)
-</code></pre>
-
-<h3 id="git-help">git help</h3>
-
-<pre><code>$ git help
-&gt; (improved git help)
-$ git help hub
-&gt; (hub man page)
-</code></pre>
+<p>In future, I aim to fork <a href="https://github.com/kemayo/sublime-text-git/">kemayo/sublime-text-git</a> and add some of the <code>hub</code> specific features</p>
 
 <h2 id="BUGS">BUGS</h2>
 
