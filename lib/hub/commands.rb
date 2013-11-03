@@ -265,6 +265,16 @@ module Hub
     #
     # $ hub clone -p kneath/hemingway
     # > git clone git@github.com:kneath/hemingway.git
+    # 
+    # $ hub clone [-s | --salesforce] oblongmana/test
+    # > git clone git@github.com:oblongmana/test.git
+    # > /Applications/MavensMate.app/Contents/Resources/mm/mm --ui -o \
+    #     new_project_from_existing_directory \
+    #     <<< '{"directory": "/path/to/test.git"}''
+    # NOTE: this should only be invoked from inside your ST2/3 mm_workspace dir,
+    #       as if it isn't, mm creates a COPY of your project inside mm_workspace,
+    #       rather than simply adding the mm nature
+    # NOTE: this plays nice with the -p [for private] flag
     #
     # $ hub clone tilt
     # > git clone git://github.com/YOUR_LOGIN/tilt.
@@ -273,6 +283,7 @@ module Hub
     # > git clone git@github.com:YOUR_LOGIN/hemingway.git
     def clone(args)
       ssh = args.delete('-p')
+      salesforce = (args.delete('-s').to_s + args.delete('--salesforce').to_s)
       has_values = /^(--(upload-pack|template|depth|origin|branch|reference|name)|-[ubo])$/
 
       idx = 1
@@ -289,6 +300,11 @@ module Hub
             project = github_project(name, owner || github_user)
             ssh ||= args[0] != 'submodule' && project.owner == github_user(project.host) { }
             args[idx] = project.git_url(:private => ssh, :https => https_protocol?)
+            if !salesforce.empty? 
+              args.after "/Applications/MavensMate.app/Contents/Resources/mm/mm", 
+                          ["--ui","-o","new_project_from_existing_directory",
+                            "<<<", %Q['{"directory": "#{File.join(Dir.getwd, name)}"}']]
+            end
           end
           break
         end
@@ -317,7 +333,6 @@ module Hub
 
         BLOCK
       end
-            
 
       args.push(*["filter-branch","--force","--index-filter","git rm --cached --ignore-unmatch #{nukee}","--prune-empty","--tag-name-filter","cat","--","--all"]);
 

@@ -55,7 +55,13 @@ module Hub
     # Runs multiple commands in succession; exits at first failure.
     def execute_command_chain commands
       commands.each_with_index do |cmd, i|
-        if cmd.respond_to?(:call) then cmd.call
+        #Oblongmana, 4/11/13: 
+        # If the command requires the HERESTRING[<<<] syntax, collapse it into one string
+        #   This is ugly, but easier for now than learning how to do ruby process mgmt and rewriting!
+        if cmd.include?("<<<") then cmd = cmd.join(" ") end
+
+        if cmd.respond_to?(:call) then 
+          cmd.call
         elsif i == commands.length - 1
           # last command in chain
           exec(*cmd)
