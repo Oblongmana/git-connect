@@ -370,14 +370,14 @@ module Hub
           if verbose then
             puts "\nISSUES\n======\n\n"
             issues.each_with_index do |issue,index|
-              puts word_wrap(issue['title'])
+              puts word_wrap("ISSUE: #{issue['title']}")
               puts issue['title'].length < 80 ? '-'*issue['title'].length : '-'*80
-              puts "Issue Number:\n #{word_wrap(issue['number'].to_s,tab_size,wrap_size)}"
-              puts "Created:\n #{word_wrap(issue['created_at'],tab_size,wrap_size)}"
-              puts "State:\n #{word_wrap(issue['state'],tab_size,wrap_size)}"
+              puts "Issue Number:\n#{word_wrap(issue['number'].to_s,tab_size,wrap_size)}"
+              puts "Created:\n#{word_wrap(issue['created_at'],tab_size,wrap_size)}"
+              puts "State:\n#{word_wrap(issue['state'],tab_size,wrap_size)}"
               puts "Assigned to:\n #{word_wrap(issue['assignee'].nil? ? "[Not assigned to anyone]" : issue['assignee']['login'],tab_size,wrap_size)}"
-              puts "Body:\n #{word_wrap(issue['body'].nil? ? "[Issue has no body]" : issue['body'],tab_size,wrap_size)}"
-              puts "\n\n"
+              puts "Body:\n#{word_wrap(issue['body'].nil? ? "[Issue has no body]" : issue['body'],tab_size,wrap_size)}"
+              puts "\n \n"
             end
           else
             issues.each { |i| puts "\##{i['number']}: [#{i['state']}, #{'%.2f' % (DateTime.now() - DateTime.parse(i['created_at'])).to_f} days old] #{i['title']}"}
@@ -398,6 +398,7 @@ module Hub
           end
         end
         api_client.create_issue(current_project, options)
+        puts "Issue Created"
         exit 0
       when "close"
         issue_num = args.shift
