@@ -52,6 +52,14 @@ module Hub
         [api_host(project.host), project.owner, project.name]
     end
 
+    # Public: Fetch list of issues for a specific repo.
+    def repo_issues project, options = {}
+      params = {}
+      params[:state]        = options[:state]      if options[:state]
+      get_with_params "https://%s/repos/%s/%s/issues" %
+        [api_host(project.host), project.owner, project.name], params
+    end
+
     # Public: Determine whether a specific repo exists.
     def repo_exists? project
       repo_info(project).success?
@@ -79,6 +87,33 @@ module Hub
       res.error! unless res.success?
       res.data
     end
+
+    # Public: Create a new issue.
+    def create_issue project, options = {}
+      params = {}
+      params[:title]        = options[:title]      if options[:title]
+      params[:state]        = options[:state]      if options[:state]
+      params[:body]         = options[:body]       if options[:body]
+      params[:assignee]     = options[:assignee]   if options[:assignee]
+      params[:milestone]    = options[:milestone]  if options[:milestone]
+      params[:labels]       = options[:labels]     if options[:labels]
+
+      res = post "https://%s/repos/%s/%s/issues" % [api_host(project.host), project.owner, project.name], params
+      
+      res.error! unless res.success?
+      res.data
+    end
+
+    # Public: Close an issue.
+    def close_issue project, issue_num
+      params = {}
+      params[:state] = "closed"
+      res = post "https://%s/repos/%s/%s/issues/%s" % [api_host(project.host), project.owner, project.name, issue_num], params
+      
+      res.error! unless res.success?
+      res.data
+    end
+
 
     # Public: Fetch info about a pull request.
     def pullrequest_info project, pull_id
@@ -151,6 +186,17 @@ module Hub
 
       def get url, &block
         perform_request url, :Get, &block
+      end
+
+      def get_with_params url, params = nil
+        perform_request url, :Get do |req|
+          if params
+            require 'cgi'
+            req.path.concat("?" + params.collect { |k,v| "#{k}=#{CGI::escape(v.to_s)}" }.join('&')) unless params.nil?
+          end
+          yield req if block_given?
+          req['Content-Length'] = byte_size req.body
+        end
       end
 
       def post url, params = nil

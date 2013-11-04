@@ -349,6 +349,90 @@ module Hub
         ]
     end
 
+    # hub issue new -t "Title of the issue"
+    def issues(args)
+      args.shift
+      verb = args.shift
+
+      tab_size = 4
+      wrap_size = 80
+
+      case verb
+      when "list"
+        closed = !!args.delete('-c')
+        verbose = !!args.delete('-v')
+
+        params = {}
+        if (closed) then params[:state] = "closed" end
+        issues = api_client.repo_issues(current_project,params).data
+        
+        if issues then
+          if verbose then
+            puts "\nISSUES\n======\n\n"
+            issues.each_with_index do |issue,index|
+              puts word_wrap(issue['title'])
+              puts issue['title'].length < 80 ? '-'*issue['title'].length : '-'*80
+              puts "Issue Number:\n #{word_wrap(issue['number'].to_s,tab_size,wrap_size)}"
+              puts "Created:\n #{word_wrap(issue['created_at'],tab_size,wrap_size)}"
+              puts "State:\n #{word_wrap(issue['state'],tab_size,wrap_size)}"
+              puts "Assigned to:\n #{word_wrap(issue['assignee'].nil? ? "[Not assigned to anyone]" : issue['assignee']['login'],tab_size,wrap_size)}"
+              puts "Body:\n #{word_wrap(issue['body'].nil? ? "[Issue has no body]" : issue['body'],tab_size,wrap_size)}"
+              puts "\n\n"
+            end
+          else
+            issues.each { |i| puts "\##{i['number']}: [#{i['state']}, #{'%.2f' % (DateTime.now() - DateTime.parse(i['created_at'])).to_f} days old] #{i['title']}"}
+          end
+        else
+          [No issues on this repository]
+        end
+        exit 0
+      when "new"
+        options = {}
+        until args.empty?
+          case arg = args.shift
+          when '-t'
+            options[:title] = args.shift
+          when '-b'
+            options[:body] = args.shift
+          when '-a'
+            options[:assignee] = args.shift
+          else
+            abort "invalid argument: #{arg}"
+          end
+        end
+        api_client.create_issue(current_project, options)
+        exit 0
+      when "close"
+        issue_num = args.shift
+        if !!issue_num && issue_num.to_i > 0 then
+          api_client.close_issue(current_project, issue_num)
+          puts "Issue #{issue_num} closed"
+          exit 0
+        else
+          abort "usage: hub issue close <issue_number>"
+        end
+      else
+        # puts api_client.repo_issues(current_project)
+        # puts JSON.instance_methods.sort
+        abort <<-BLOCK.gsub(/^[^\S\n\t]+/, '')
+          usage: hub issues <command>
+
+          Commands:
+          \tlist: List all issues in the repository
+          \t |\t-c \tShow closed issues (default: open)
+          \t |\t-v \tVerbose output
+          \tnew: Create a new issue in the repository
+          \t |\t-t "Title"\tRequired. Title of the issue
+          \t |\t-b "Body"\tOptional. Detailed description
+          \t |\t-a "Assignee"\tOptional. Who to assign the issue to
+          \tclose <number>: Close issue number <number> in the repository
+        BLOCK
+      end
+    rescue GitHubAPI::Exceptions
+      display_api_exception("creating issue", $!.response)
+      exit 1
+    end
+
     # $ hub submodule add wycats/bundler vendor/bundler
     # > git submodule add git://github.com/wycats/bundler.git vendor/bundler
     #
@@ -887,6 +971,11 @@ module Hub
         file_config = GitHubAPI::Configuration.new file_store
         GitHubAPI.new file_config, :app_url => 'http://hub.github.com/'
       end
+    end
+
+    # https://www.ruby-forum.com/topic/57805
+    def word_wrap(str_to_wrap, spaces_to_indent = 0, width = 80)
+      str_to_wrap.scan(/\S.{0,#{width-2-spaces_to_indent}}\S(?=\s|$)|\S+/).map{|c| "\s"*spaces_to_indent+c}.join("\n")
     end
 
     def github_user host = nil, &block
