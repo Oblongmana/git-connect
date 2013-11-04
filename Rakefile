@@ -55,7 +55,7 @@ if command? :ronn
 
   extract_examples = lambda { |readme_file|
     # split readme in sections
-    examples = File.read(readme_file).split(/^-{4,}$/)[3].strip
+    examples = File.read(readme_file).split(/^-{4,}$/)[4].strip
     examples.sub!(/^.+?(###)/m, '\1')  # strip intro paragraph
     examples.sub!(/\n+.+\Z/, '')       # remove last line
     examples

@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "HUB" "1" "October 2013" "GITHUB" "Git Manual"
+.TH "HUB" "1" "November 2013" "GITHUB" "Git Manual"
 .
 .SH "NAME"
 \fBhub\fR \- git + hub = github
@@ -210,29 +210,264 @@ $ GITHUB_HOST=my\.git\.org git clone myproject
 .IP "" 0
 .
 .SH "EXAMPLES"
-Open your User Settings for the kemayo/sublime\-text\-git \fIhttps://github\.com/kemayo/sublime\-text\-git/\fR package, and add the following:
 .
-.P
-~~~ json {
-.
-.IP "" 4
+.SS "git clone"
 .
 .nf
 
-"git_command": "/usr/local/bin/hub"
+$ git clone schacon/ticgit
+> git clone git://github\.com/schacon/ticgit\.git
+
+$ git clone \-p schacon/ticgit
+> git clone git@github\.com:schacon/ticgit\.git
+
+$ git clone resque
+> git clone git@github\.com/YOUR_USER/resque\.git
 .
 .fi
 .
-.IP "" 0
+.SS "git remote add"
 .
-.P
-} ~~~
+.nf
+
+$ git remote add rtomayko
+> git remote add rtomayko git://github\.com/rtomayko/CURRENT_REPO\.git
+
+$ git remote add \-p rtomayko
+> git remote add rtomayko git@github\.com:rtomayko/CURRENT_REPO\.git
+
+$ git remote add origin
+> git remote add origin git://github\.com/YOUR_USER/CURRENT_REPO\.git
 .
-.P
-As kemayo/sublime\-text\-git \fIhttps://github\.com/kemayo/sublime\-text\-git/\fR invokes the git program directly, this simply tells it that the git program it should be invoking is our hub program\.
+.fi
 .
-.P
-In future, I aim to fork kemayo/sublime\-text\-git \fIhttps://github\.com/kemayo/sublime\-text\-git/\fR and add some of the \fBhub\fR specific features
+.SS "git fetch"
+.
+.nf
+
+$ git fetch mislav
+> git remote add mislav git://github\.com/mislav/REPO\.git
+> git fetch mislav
+
+$ git fetch mislav,xoebus
+> git remote add mislav \.\.\.
+> git remote add xoebus \.\.\.
+> git fetch \-\-multiple mislav xoebus
+.
+.fi
+.
+.SS "git cherry\-pick"
+.
+.nf
+
+$ git cherry\-pick http://github\.com/mislav/REPO/commit/SHA
+> git remote add \-f mislav git://github\.com/mislav/REPO\.git
+> git cherry\-pick SHA
+
+$ git cherry\-pick mislav@SHA
+> git remote add \-f mislav git://github\.com/mislav/CURRENT_REPO\.git
+> git cherry\-pick SHA
+
+$ git cherry\-pick mislav@SHA
+> git fetch mislav
+> git cherry\-pick SHA
+.
+.fi
+.
+.SS "git am, git apply"
+.
+.nf
+
+$ git am https://github\.com/defunkt/hub/pull/55
+> curl https://github\.com/defunkt/hub/pull/55\.patch \-o /tmp/55\.patch
+> git am /tmp/55\.patch
+
+$ git am \-\-ignore\-whitespace https://github\.com/davidbalbert/hub/commit/fdb9921
+> curl https://github\.com/davidbalbert/hub/commit/fdb9921\.patch \-o /tmp/fdb9921\.patch
+> git am \-\-ignore\-whitespace /tmp/fdb9921\.patch
+
+$ git apply https://gist\.github\.com/8da7fb575debd88c54cf
+> curl https://gist\.github\.com/8da7fb575debd88c54cf\.txt \-o /tmp/gist\-8da7fb575debd88c54cf\.txt
+> git apply /tmp/gist\-8da7fb575debd88c54cf\.txt
+.
+.fi
+.
+.SS "git fork"
+.
+.nf
+
+$ git fork
+[ repo forked on GitHub ]
+> git remote add \-f YOUR_USER git@github\.com:YOUR_USER/CURRENT_REPO\.git
+.
+.fi
+.
+.SS "git pull\-request"
+.
+.nf
+
+# while on a topic branch called "feature":
+$ git pull\-request
+[ opens text editor to edit title & body for the request ]
+[ opened pull request on GitHub for "YOUR_USER:feature" ]
+
+# explicit title, pull base & head:
+$ git pull\-request \-m "Implemented feature X" \-b defunkt:master \-h mislav:feature
+
+$ git pull\-request \-i 123
+[ attached pull request to issue #123 ]
+.
+.fi
+.
+.SS "git checkout"
+.
+.nf
+
+$ git checkout https://github\.com/defunkt/hub/pull/73
+> git remote add \-f \-t feature git://github:com/mislav/hub\.git
+> git checkout \-\-track \-B mislav\-feature mislav/feature
+
+$ git checkout https://github\.com/defunkt/hub/pull/73 custom\-branch\-name
+.
+.fi
+.
+.SS "git merge"
+.
+.nf
+
+$ git merge https://github\.com/defunkt/hub/pull/73
+> git fetch git://github\.com/mislav/hub\.git +refs/heads/feature:refs/remotes/mislav/feature
+> git merge mislav/feature \-\-no\-ff \-m \'Merge pull request #73 from mislav/feature\.\.\.\'
+.
+.fi
+.
+.SS "git create"
+.
+.nf
+
+$ git create
+[ repo created on GitHub ]
+> git remote add origin git@github\.com:YOUR_USER/CURRENT_REPO\.git
+
+# with description:
+$ git create \-d \'It shall be mine, all mine!\'
+
+$ git create recipes
+[ repo created on GitHub ]
+> git remote add origin git@github\.com:YOUR_USER/recipes\.git
+
+$ git create sinatra/recipes
+[ repo created in GitHub organization ]
+> git remote add origin git@github\.com:sinatra/recipes\.git
+.
+.fi
+.
+.SS "git init"
+.
+.nf
+
+$ git init \-g
+> git init
+> git remote add origin git@github\.com:YOUR_USER/REPO\.git
+
+$ hub init [\-s | \-\-salesforce]
+> git init
+> curl \-#o \.gitignore https://gist\.github\.com/Oblongmana/7130387/raw/\.gitignore\-sf
+> touch README\.md
+.
+.fi
+.
+.SS "git push"
+.
+.nf
+
+$ git push origin,staging,qa bert_timeout
+> git push origin bert_timeout
+> git push staging bert_timeout
+> git push qa bert_timeout
+.
+.fi
+.
+.SS "git browse"
+.
+.nf
+
+$ git browse
+> open https://github\.com/YOUR_USER/CURRENT_REPO
+
+$ git browse \-\- commit/SHA
+> open https://github\.com/YOUR_USER/CURRENT_REPO/commit/SHA
+
+$ git browse \-\- issues
+> open https://github\.com/YOUR_USER/CURRENT_REPO/issues
+
+$ git browse schacon/ticgit
+> open https://github\.com/schacon/ticgit
+
+$ git browse schacon/ticgit commit/SHA
+> open https://github\.com/schacon/ticgit/commit/SHA
+
+$ git browse resque
+> open https://github\.com/YOUR_USER/resque
+
+$ git browse resque network
+> open https://github\.com/YOUR_USER/resque/network
+.
+.fi
+.
+.SS "git compare"
+.
+.nf
+
+$ git compare refactor
+> open https://github\.com/CURRENT_REPO/compare/refactor
+
+$ git compare 1\.0\.\.1\.1
+> open https://github\.com/CURRENT_REPO/compare/1\.0\.\.\.1\.1
+
+$ git compare \-u fix
+> (https://github\.com/CURRENT_REPO/compare/fix)
+
+$ git compare other\-user patch
+> open https://github\.com/other\-user/REPO/compare/patch
+.
+.fi
+.
+.SS "git submodule"
+.
+.nf
+
+$ hub submodule add wycats/bundler vendor/bundler
+> git submodule add git://github\.com/wycats/bundler\.git vendor/bundler
+
+$ hub submodule add \-p wycats/bundler vendor/bundler
+> git submodule add git@github\.com:wycats/bundler\.git vendor/bundler
+
+$ hub submodule add \-b ryppl \-\-name pip ryppl/pip vendor/pip
+> git submodule add \-b ryppl \-\-name pip git://github\.com/ryppl/pip\.git vendor/pip
+.
+.fi
+.
+.SS "git ci\-status"
+.
+.nf
+
+$ hub ci\-status [commit]
+> (prints CI state of commit and exits with appropriate code)
+> One of: success (0), error (1), failure (1), pending (2), no status (3)
+.
+.fi
+.
+.SS "git help"
+.
+.nf
+
+$ git help
+> (improved git help)
+$ git help hub
+> (hub man page)
+.
+.fi
 .
 .SH "BUGS"
 \fIhttps://github\.com/github/hub/issues\fR
