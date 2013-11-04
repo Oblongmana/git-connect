@@ -60,6 +60,12 @@ module Hub
         [api_host(project.host), project.owner, project.name], params
     end
 
+    # Public: Fetch list of labels for a specific repo.
+    def repo_labels project
+      get "https://%s/repos/%s/%s/labels" %
+        [api_host(project.host), project.owner, project.name]
+    end
+
     # Public: Determine whether a specific repo exists.
     def repo_exists? project
       repo_info(project).success?

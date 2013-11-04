@@ -396,6 +396,8 @@ module Hub
             options[:body] = args.shift
           when '-a'
             options[:assignee] = args.shift
+          when '-l'
+            options[:labels] = args.shift.split(',')
           else
             abort "invalid argument: #{arg}"
           end
@@ -411,6 +413,17 @@ module Hub
         else
           abort "usage: hub issue close <issue_number>"
         end
+      when "labels"
+        verbose = !!args.delete('-v')
+        labels = api_client.repo_labels(current_project).data
+        if verbose then
+          labels.each { |l| puts "[\##{l['color']}] #{l['name']}"}
+        else
+          out_labels = []
+          labels.each { |l| out_labels << l['name'] }
+          puts out_labels.join(", ")
+        end
+        exit 0
       else
         # puts api_client.repo_issues(current_project)
         # puts JSON.instance_methods.sort
