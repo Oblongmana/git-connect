@@ -390,16 +390,11 @@ module Hub
         options = {}
         until args.empty?
           case arg = args.shift
-          when '-t'
-            options[:title] = args.shift
-          when '-b'
-            options[:body] = args.shift
-          when '-a'
-            options[:assignee] = args.shift
-          when '-l'
-            options[:labels] = args.shift.split(',')
-          else
-            abort "invalid argument: #{arg}"
+          when '-t' then options[:title] = args.shift
+          when '-b' then options[:body] = args.shift
+          when '-a' then options[:assignee] = args.shift
+          when '-l' then options[:labels] = args.shift.split(',')
+          else abort "invalid argument: #{arg}"
           end
         end
         api_client.create_issue(current_project, options)
@@ -425,8 +420,6 @@ module Hub
         end
         exit 0
       else
-        # puts api_client.repo_issues(current_project)
-        # puts JSON.instance_methods.sort
         abort <<-BLOCK.gsub(/^[^\S\n\t]+/, '')
           usage: hub issues <command>
 
@@ -737,10 +730,8 @@ module Hub
 
         until args.empty?
           case arg = args.shift
-          when '-d'
-            options[:description] = args.shift
-          when '-h'
-            options[:homepage] = args.shift
+          when '-d' then options[:description] = args.shift
+          when '-h' then options[:homepage] = args.shift
           else
             if arg =~ /^[^-]/ and new_repo_name.nil?
               new_repo_name = arg
