@@ -349,7 +349,16 @@ module Hub
         ]
     end
 
-    # hub issue new -t "Title of the issue"
+    # hub issues list
+    # > [Terse listing of open issues]
+    # 
+    # hub issues list -v
+    # > [Verbose listing of open issues]
+    # 
+    # hub issues list -c
+    # > [Terse listing of closed issues]
+    # 
+    # hub issues new -t "Title of the issue"
     def issues(args)
       args.shift
       verb = args.shift

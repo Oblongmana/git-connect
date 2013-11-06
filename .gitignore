@@ -2,6 +2,7 @@
 *~
 /hub
 tmp/
+notes/
 
 #OSX-specific exclusions
 .[dD][sS]-[sS]tore
