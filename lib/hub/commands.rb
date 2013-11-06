@@ -349,6 +349,11 @@ module Hub
         ]
     end
 
+    def test123(args)
+      gitlab_api_client.test_get_projects('ec2-54-206-23-142.ap-southeast-2.compute.amazonaws.com')
+      exit 0
+    end
+
     # hub issues list
     # > [Terse listing of open issues]
     # 
@@ -984,6 +989,15 @@ module Hub
         file_store = GitHubAPI::FileStore.new File.expand_path(config_file)
         file_config = GitHubAPI::Configuration.new file_store
         GitHubAPI.new file_config, :app_url => 'http://hub.github.com/'
+      end
+    end
+
+    def gitlab_api_client
+      @gitlab_api_client ||= begin
+        config_file = ENV['HUB_CONFIG'] || '~/.config/hub'
+        file_store = GitLabAPI::FileStore.new File.expand_path(config_file)
+        file_config = GitLabAPI::Configuration.new file_store
+        GitLabAPI.new file_config
       end
     end
 
