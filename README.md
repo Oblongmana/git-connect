@@ -134,7 +134,7 @@ list (and may not necessarily need messing with)
 
 Use with [joeferraro/MavensMate](https://github.com/joeferraro/MavensMate) and [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) in Sublime Text
 --------
-Open your User Settings for the [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) package, and add the following:
+Open your User Settings for the [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) package, and add the following (NOTE that your hub install location may vary, run `which hub` to check the location):
 
 ~~~ json
 {
