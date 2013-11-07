@@ -7,7 +7,7 @@ module Hub
   # Client for the GitLab v3 API.
   #
   # First time around, user gets prompted for username/password in the shell.
-  # Then this information is exchanged for an OAuth token which is saved in a file.
+  # Then this information is exchanged for an Auth token which is saved in a file.
   # 
   # As this class borrows heavily from github_api.rb, anything pulled in there
   #   from github/hub should also be looked over to see if it should be dropped
@@ -409,7 +409,7 @@ module Hub
     end
 
     # Provides authentication info per GitLab host such as username, password,
-    # and API/OAuth tokens.
+    # and Auth tokens.
     class Configuration
       def initialize store
         @data = store
