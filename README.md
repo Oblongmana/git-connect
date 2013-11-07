@@ -1,21 +1,61 @@
-git + hub + ???? = oblong-hub
+git + hub + lab + other connections = git-connect
 ==================
 
 [hub](https://github.com/github/hub) is a command line tool that wraps `git` in 
 order to extend it with extra features and commands that make working with 
 GitHub easier.
 
-`oblong-hub` is a fork of `hub` that [@Oblongmana]
-(https://github.com/Oblongmana) uses, and maybe some of the folks at [@Trineo]
-(https://github.com/Trineo) might as well maybe. This is particularly oriented 
-towards [@ForceDotCom](https://github.com/ForceDotCom) development using 
-[Sublime Text](http://www.sublimetext.com/) (especially ST3), with the 
-[kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) plugin, 
-and the [joeferraro/MavensMate](https://github.com/joeferraro/MavensMate) server + plugin, 
-running on OSX.
+`git-connect` is a fork of `[github/hub](https://github.com/github/hub)` that 
+[@Oblongmana](https://github.com/Oblongmana) uses, and maybe some of the folks 
+at [@Trineo](https://github.com/Trineo) might as well maybe. 
 
-However, it doesn't require any of the above. Probably. Should just be doing 
-`git` things, nothing else. If it is doing something else, that's probably a 
+This is likely going to be a bit of a hodge-podge of different functionality,
+but the aim is to get you as connected with the outside world as possible from
+within your command line. The less often you have to leave and open a browser
+or app, the better. Less clicking, more typing.
+
+Enhancements over regular git + hub:
+ - gitlab integration (WIP - available in the 
+    `[gitlab](https://github.com/oblongmana/git-connect/tree/gitlab)`) branch
+ - github `issues` verb: `hub issues [more-specific-verb]`, aiming to extend to
+    include gitlab issues as well. Includes the following `more-specific-verb`s:
+   - list (with default open-only one-line listing, and verbose and close issues 
+      flags)
+   - new (with flags for setting title, body, assignee, and labels)
+   - close (a specific issue number)
+   - labels (lists all the labels on a repo)
+ - [MavensMate](https://github.com/joeferraro/MavensMate) flag to launch the 
+    `new_project_from_existing_directory` dialog after cloning a project, to add
+    MavensMate nature to the project
+   - `hub clone [-s|--salesforce]`
+ - new `init` flag `[-s|--salesforce]. Does regular `init` stuff, plus:
+   - `curl`s a [standard Salesforce dev .gitignore from a gist]
+      (https://gist.github.com/Oblongmana/7130387/raw/.gitignore-sf) designed
+      for use with Sublime Text and MavensMate on OSX
+   - creates a `README.md`
+ - `nuke` verb: following the procedure on GitHub's [Remove Sensitive Data]
+     (https://help.github.com/articles/remove-sensitive-data) page, expunges a
+     file from your local history - making it appear it was never there. 
+     Instructions for pushing to remotes are then output to terminal
+ 
+
+This is particularly oriented towards [@ForceDotCom]
+(https://github.com/ForceDotCom) development using [Sublime Text]
+(http://www.sublimetext.com/) (especially ST3), with the 
+[kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) plugin, 
+and the [joeferraro/MavensMate](https://github.com/joeferraro/MavensMate) server
++ plugin, running on OSX - as that's my daily working environment. In the event 
+that this repo goes somewhere, that may not be ideal - some of that 
+functionality should probably be left out of master, or perhaps have separate
+subdirectories for different focuses and corresponding installation flags,
+or perhaps forked projects. I like the sound of subdirectories. But that's not
+a concern for now, so none of that complexity for now. Feel free to open an 
+issue if that changes in future.
+
+All that said, none of the aforementioned things are required to install,
+but of course their corresponding functionality won't work (e.g. the -s flag on
+clone won't work if you don't have MavensMate. Should just be doing `git`-ish 
+things, nothing else. If it is doing something else, that's probably a 
 bug. Except maybe the OSX requirement. Should hopefully work ok on linux, but
 I'm not touching Windows with a barge-pole. If core `hub` works on Windows,
 you're probably ok though. Maybe.
@@ -44,8 +84,8 @@ This can't be installed alongside core `hub`.
 
 ~~~ sh
 # Clone the project from GitHub:
-$ git clone git@github.com:Oblongmana/oblong-hub.git
-$ cd oblong-hub
+$ git clone git@github.com:Oblongmana/git-connect.git
+$ cd git-connect
 $ rake install
 ~~~
 
@@ -84,7 +124,7 @@ eval "$(hub alias -s)"
 hub repository contains tab-completion scripts for bash and zsh. These scripts
 complement existing completion scripts that ship with git.
 
-Disclaimer: I haven't touched this in `oblong-hub` - it's somewhere on a todo 
+Disclaimer: I haven't touched this in `git-connect` - it's somewhere on a todo 
 list (and may not necessarily need messing with)
 
 * [hub bash completion](https://github.com/github/hub/blob/master/etc/hub.bash_completion.sh)
@@ -110,7 +150,7 @@ In future, I aim to fork [kemayo/sublime-text-git](https://github.com/kemayo/sub
 Commands
 --------
 
-Disclaimer: I haven't touched this section of the README much in `oblong-hub` - 
+Disclaimer: I haven't touched this section of the README much in `git-connect` - 
 I found there were a few things missing from this list that were features in 
 core `hub`, so caveat emptor. The source isn't super crazy to read (check out
 [lib/hub/commands.rb](lib/hub/commands.rb), and the methods have comments up
@@ -344,7 +384,7 @@ These instructions assume that _you already have hub installed_ and aliased as
 `git` (see "Aliasing").
 
 1. Clone hub:  
-    `git clone oblongmana/oblong-hub && cd oblong-hub`
+    `git clone oblongmana/git-connect && cd git-connect`
 1. Ensure Bundler is installed:  
     `which bundle || gem install bundler`
 1. Install development dependencies:  
