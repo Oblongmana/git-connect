@@ -451,7 +451,7 @@ module Hub
         BLOCK
       end
     rescue GitHubAPI::Exceptions
-      display_api_exception("creating issue", $!.response)
+      display_api_exception("on issues call", $!.response)
       exit 1
     end
 
