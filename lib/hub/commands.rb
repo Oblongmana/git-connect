@@ -350,7 +350,8 @@ module Hub
     end
 
     def test123(args)
-      gitlab_api_client.test_get_projects('ec2-54-206-23-142.ap-southeast-2.compute.amazonaws.com')
+      # gitlab_api_client.test_get_projects('ec2-54-206-23-142.ap-southeast-2.compute.amazonaws.com')
+      gitlab_api_client.test_useless_post('ec2-54-206-23-142.ap-southeast-2.compute.amazonaws.com')
       exit 0
     end
 

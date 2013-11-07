@@ -52,6 +52,10 @@ module Hub
       res.data.each { |elem| puts "Project: #{elem['name']}" }
     end
 
+    def test_useless_post gitlab_url
+      res = post "https://%s/" % [api_host(gitlab_url)]
+    end
+
     # # Public: Fetch data for a specific repo.
     # def repo_info project
     #   get "https://%s/repos/%s/%s" %
@@ -214,7 +218,12 @@ module Hub
 
       def post url, params = nil
         perform_request url, :Post do |req|
+          if params
+            req.body = JSON.dump params
+            req['Content-Type'] = 'application/json;harset=utf-8'
+          end
           yield req if block_given?
+          req['Content-Length'] = byte_size req.body
         end
       end
 
@@ -233,14 +242,6 @@ module Hub
         url = URI.parse url unless url.respond_to? :host
 
         require 'net/https'
-
-        # Note that as opposed to github_api.rb, for gitlab,
-        #   auth needs to be performed before we construct the
-        #   Http::[Type] - as when hitting the session endpoint
-        #   (to get the private token), gitlab takes session 
-        #   parameters
-        auth = apply_authentication(url) 
-
         req = Net::HTTP.const_get(type).new request_uri(url)
         # TODO: better naming?
         http = configure_connection(req, url) do |host_url|
@@ -248,10 +249,7 @@ module Hub
         end
 
         req['User-Agent'] = "Hub #{Hub::VERSION}"
-        if auth.is_a? Hash
-          auth.each { |k,v| req[k] = v }
-        end
-
+        apply_authentication(req, url) 
         yield req if block_given?
 
         begin
@@ -280,17 +278,15 @@ module Hub
         yield url
       end
 
-      def apply_authentication url
+      def apply_authentication req, url
         # This is only hit for new session
-        # returns the url object with query params added
-        
+        #   Add login/pass to req body for auth
+        #   Add Content-Type json header
         user = url.user || config.username(url.host)
         pass = config.password(url.host, user)
-        params = [ ["login" , user], ["password" , pass] ]
 
-        require 'cgi'
-        url.query = params.collect { |k,v| "#{k}=#{CGI::escape(v.to_s)}" }.join('&')
-        url
+        req['Content-Type'] = "application/json;charset=UTF-8"
+        req.body = JSON.generate  "login" => user, "password" => pass 
       end
 
       def create_connection url
@@ -317,7 +313,7 @@ module Hub
     end
 
     module Auth
-      def apply_authentication url
+      def apply_authentication req, url
         # hit for all requests, whether auth exists already or not
         # 
         # If hitting the authorization endpoint ("/session"), returns the url object (a URI)
@@ -328,18 +324,18 @@ module Hub
         if (url.path =~ /\/session$/)
           super
         else
-          refresh = false
+          # refresh = false
           user = url.user || config.username(url.host)
           token = config.auth_token(url.host, user) {
-            refresh = true
+            # refresh = true
             obtain_auth_token url.host, user
           }
-          if refresh
-            # get current user info user to persist correctly capitalized login name
-            res = get "https://#{url.host}/user"
-            res.error! unless res.success?
-            config.update_username(url.host, user, res.data['login'])
-          end
+          # if refresh
+          #   # get current user info user to persist correctly capitalized login name
+          #   res = get "https://#{url.host}/user"
+          #   res.error! unless res.success?
+          #   config.update_username(url.host, user, res.data['login'])
+          # end
           {"PRIVATE-TOKEN",token}
           # req['Authorization'] = "token #{token}"
         end
@@ -435,11 +431,11 @@ module Hub
         end
       end
 
-      def update_username host, old_username, new_username
-        entry = @data.entry_for_user(normalize_host(host), old_username)
-        entry['user'] = new_username
-        @data.save
-      end
+      # def update_username host, old_username, new_username
+      #   entry = @data.entry_for_user(normalize_host(host), old_username)
+      #   entry['user'] = new_username
+      #   @data.save
+      # end
 
       def password host, user
         return ENV['GITLAB_PASSWORD'] unless ENV['GITLAB_PASSWORD'].to_s.empty?
