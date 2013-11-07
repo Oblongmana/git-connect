@@ -5,7 +5,7 @@ git + hub + lab + other connections = git-connect
 order to extend it with extra features and commands that make working with 
 GitHub easier.
 
-`git-connect` is a fork of `[github/hub](https://github.com/github/hub)` that 
+`git-connect` is a fork of [github/hub](https://github.com/github/hub) that 
 [@Oblongmana](https://github.com/Oblongmana) uses, and maybe some of the folks 
 at [@Trineo](https://github.com/Trineo) might as well maybe. 
 
@@ -16,7 +16,7 @@ or app, the better. Less clicking, more typing.
 
 Enhancements over regular git + hub:
  - gitlab integration (WIP - available in the 
-    `[gitlab](https://github.com/oblongmana/git-connect/tree/gitlab)`) branch
+    [gitlab](https://github.com/oblongmana/git-connect/tree/gitlab)) branch
  - github `issues` verb: `hub issues [more-specific-verb]`, aiming to extend to
     include gitlab issues as well. Includes the following `more-specific-verb`s:
    - list (with default open-only one-line listing, and verbose and close issues 
@@ -28,23 +28,24 @@ Enhancements over regular git + hub:
     `new_project_from_existing_directory` dialog after cloning a project, to add
     MavensMate nature to the project
    - `hub clone [-s|--salesforce]`
- - new `init` flag `[-s|--salesforce]. Does regular `init` stuff, plus:
+ - new `init` flag `[-s|--salesforce]`. Does regular `init` stuff, plus:
    - `curl`s a [standard Salesforce dev .gitignore from a gist]
       (https://gist.github.com/Oblongmana/7130387/raw/.gitignore-sf) designed
       for use with Sublime Text and MavensMate on OSX
    - creates a `README.md`
  - `nuke` verb: following the procedure on GitHub's [Remove Sensitive Data]
      (https://help.github.com/articles/remove-sensitive-data) page, expunges a
-     file from your local history - making it appear it was never there. 
-     Instructions for pushing to remotes are then output to terminal
+     file from your local history - completely writing it out and making it 
+     appear it was never there. Instructions for pushing to remotes are then 
+     output to terminal
  
 
 This is particularly oriented towards [@ForceDotCom]
 (https://github.com/ForceDotCom) development using [Sublime Text]
 (http://www.sublimetext.com/) (especially ST3), with the 
 [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) plugin, 
-and the [joeferraro/MavensMate](https://github.com/joeferraro/MavensMate) server
-+ plugin, running on OSX - as that's my daily working environment. In the event 
+and the [joeferraro/MavensMate](https://github.com/joeferraro/MavensMate) 
+server + plugin, running on OSX - as that's my daily working environment. In the event 
 that this repo goes somewhere, that may not be ideal - some of that 
 functionality should probably be left out of master, or perhaps have separate
 subdirectories for different focuses and corresponding installation flags,
@@ -75,7 +76,7 @@ Installation
 Dependencies:
 
 * **git 1.7.3** or newer
-* **Ruby 1.8.6** or newer
+* **Ruby 1.8.6** or newer [Probably, only recently tested on 1.9.3. Open an issue if any problems]
 
 ### `rake install` from source
 
