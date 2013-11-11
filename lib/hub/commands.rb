@@ -88,7 +88,7 @@ module Hub
         abort "Aborted: no revision could be determined from '#{ref}'"
       end
 
-      statuses = api_client.statuses(head_project, sha)
+      statuses = api_client(:github).statuses(head_project, sha)
       status = statuses.first
       if status
         ref_state = status['state']
@@ -190,7 +190,7 @@ module Hub
       options[:head] ||= (tracked_branch || current_branch).short_name
 
       # when no tracking, assume remote branch is published under active user's fork
-      user = github_user(head_project.host)
+      user = api_user(:github, head_project.host)
       if head_project.owner != user and !tracked_branch and !explicit_owner
         head_project = head_project.owned_by(user)
       end
@@ -238,7 +238,7 @@ module Hub
         }
       end
 
-      pull = api_client.create_pullrequest(options)
+      pull = api_client(:github).create_pullrequest(options)
 
       args.executable = 'echo'
       args.replace [pull['html_url']]
@@ -297,8 +297,8 @@ module Hub
           if arg =~ NAME_WITH_OWNER_RE and !File.directory?(arg)
             name, owner = arg, nil
             owner, name = name.split('/', 2) if name.index('/')
-            project = github_project(name, owner || github_user)
-            ssh ||= args[0] != 'submodule' && project.owner == github_user(project.host) { }
+            project = github_project(name, owner || api_user(:github))
+            ssh ||= args[0] != 'submodule' && project.owner == api_user(:github,project.host) { }
             args[idx] = project.git_url(:private => ssh, :https => https_protocol?)
             if !salesforce.empty? 
               args.after "/Applications/MavensMate.app/Contents/Resources/mm/mm", 
@@ -379,7 +379,7 @@ module Hub
 
         params = {}
         if (closed) then params[:state] = "closed" end
-        issues = api_client.repo_issues(current_project,params).data
+        issues = api_client(:github).repo_issues(current_project,params).data
         
         if issues then
           if verbose then
@@ -412,13 +412,13 @@ module Hub
           else abort "invalid argument: #{arg}"
           end
         end
-        api_client.create_issue(current_project, options)
+        api_client(:github).create_issue(current_project, options)
         puts "Issue Created"
         exit 0
       when "close"
         issue_num = args.shift
         if !!issue_num && issue_num.to_i > 0 then
-          api_client.close_issue(current_project, issue_num)
+          api_client(:github).close_issue(current_project, issue_num)
           puts "Issue #{issue_num} closed"
           exit 0
         else
@@ -426,7 +426,7 @@ module Hub
         end
       when "labels"
         verbose = !!args.delete('-v')
-        labels = api_client.repo_labels(current_project).data
+        labels = api_client(:github).repo_labels(current_project).data
         if verbose then
           labels.each { |l| puts "[\##{l['color']}] #{l['name']}"}
         else
@@ -479,6 +479,9 @@ module Hub
     #
     # $ hub remote add origin
     # > git remote add origin git://github.com/YOUR_LOGIN/THIS_REPO.git
+    # 
+    # This command doesn't include any gitlab support, and there doesn't appear
+    # any sensible way to do so either
     def remote(args)
       if %w[add set-url].include?(args[1])
         name = args.last
@@ -492,7 +495,7 @@ module Hub
 
       if args.words[2] == 'origin' && args.words[3].nil?
         # Origin special case triggers default user/repo
-        user, repo = github_user, repo_name
+        user, repo = api_user(:github), repo_name
       elsif args.words[-2] == args.words[1]
         # rtomayko/tilt => rtomayko
         # Make sure you dance around flags.
@@ -539,7 +542,7 @@ module Hub
       projects = names.map { |name|
         unless name !~ /^#{OWNER_RE}$/ or remotes.include?(name) or remotes_group(name)
           project = github_project(nil, name)
-          repo_info = api_client.repo_info(project)
+          repo_info = api_client(:github).repo_info(project)
           if repo_info.success?
             project.repo_data = repo_info.data
             project
@@ -561,7 +564,7 @@ module Hub
       _, url_arg, new_branch_name = args.words
       if url = resolve_github_url(url_arg) and url.project_path =~ /^pull\/(\d+)/
         pull_id = $1
-        pull_data = api_client.pullrequest_info(url.project, pull_id)
+        pull_data = api_client(:github).pullrequest_info(url.project, pull_id)
 
         args.delete new_branch_name
         user, branch = pull_data['head']['label'].split(':', 2)
@@ -589,7 +592,7 @@ module Hub
       _, url_arg = args.words
       if url = resolve_github_url(url_arg) and url.project_path =~ /^pull\/(\d+)/
         pull_id = $1
-        pull_data = api_client.pullrequest_info(url.project, pull_id)
+        pull_data = api_client(:github).pullrequest_info(url.project, pull_id)
 
         user, branch = pull_data['head']['label'].split(':', 2)
         abort "Error: #{user}'s fork is not available anymore" unless pull_data['head']['repo']
@@ -705,9 +708,9 @@ module Hub
       unless project = local_repo.main_project
         abort "Error: repository under 'origin' remote is not a GitHub project"
       end
-      forked_project = project.owned_by(github_user(project.host))
+      forked_project = project.owned_by(api_user(:github,project.host))
 
-      existing_repo = api_client.repo_info(forked_project)
+      existing_repo = api_client(:github).repo_info(forked_project)
       if existing_repo.success?
         parent_data = existing_repo.data['parent']
         parent_url  = parent_data && resolve_github_url(parent_data['html_url'])
@@ -716,7 +719,7 @@ module Hub
             [ forked_project.name_with_owner, forked_project.host ]
         end
       else
-        api_client.fork_repo(project) unless args.noop?
+        api_client(:github).fork_repo(project) unless args.noop?
       end
 
       if args.include?('--no-remote')
@@ -735,19 +738,25 @@ module Hub
     # ... create repo on github ...
     # > git remote add -f origin git@github.com:YOUR_USER/CURRENT_REPO.git
     def create(args)
+      puts "CREATE"
       if !is_repo?
         abort "'create' must be run from inside a git repository"
       else
-        owner = github_user
         args.shift
         options = {}
         options[:private] = true if args.delete('-p')
+
+        owner = nil
         new_repo_name = nil
+        gitlab_host_override = nil
+
 
         until args.empty?
           case arg = args.shift
           when '-d' then options[:description] = args.shift
           when '-h' then options[:homepage] = args.shift
+          when '-i' then options[:issues_enabled] = true
+          when '-l' then gitlab_host_override = args.shift
           else
             if arg =~ /^[^-]/ and new_repo_name.nil?
               new_repo_name = arg
@@ -757,19 +766,37 @@ module Hub
             end
           end
         end
-        new_repo_name ||= repo_name
-        new_project = github_project(new_repo_name, owner)
 
-        if api_client.repo_exists?(new_project)
+        api_type = gitlab_host_override.nil? && !local_repo.lab_known_hosts.include?(local_repo.repo_host) ? :github : :gitlab
+        api_client_instance = api_client(api_type)
+        puts "MY API_TYPE IS #{api_type}"
+        puts "MY OWNER IS #{owner}"
+        owner ||= api_user(api_type, gitlab_host_override)
+
+        puts "MY OWNER IS #{owner} and my api_type is #{api_type}"
+
+        new_repo_name ||= repo_name
+        puts "ABOUT TO CALL github_project WITH A HOST OVERRIDE"
+        new_project = github_project(new_repo_name, owner, gitlab_host_override)
+        puts "JUST CALLED github_project WITH A HOST OVERRIDE"
+
+        
+
+        if api_client_instance.repo_exists?(new_project)
+          puts "TRUE PATH on api_client_instance.repo_exists?(new_project)"
           warn "#{new_project.name_with_owner} already exists on #{new_project.host}"
           action = "set remote origin"
         else
+          puts "FALSE PATH: api_client_instance.repo_exists?(new_project)"
           action = "created repository"
           unless args.noop?
-            repo_data = api_client.create_repo(new_project, options)
-            new_project = github_project(repo_data['full_name'])
+            puts "NOT NOOP"
+            repo_data = api_client_instance.create_repo(new_project, options)
+            puts "RECREATING THE NEW GITHUB_OBJECT USING repo_data['full_name'] #{repo_data['full_name']}"
+            new_project = github_project(repo_data['full_name'],nil, nil || gitlab_host_override)
           end
         end
+        puts "DONE WITH api_client_instance.repo_exists?(new_project)"
 
         url = new_project.git_url(:private => true, :https => https_protocol?)
 
@@ -984,7 +1011,16 @@ module Hub
       CGI.escape(branch.short_name).gsub("%2F", "/")
     end
 
-    def api_client
+    def api_client type
+      case type
+      when :github then github_api_client
+      when :gitlab then gitlab_api_client
+      else
+        abort "unrecognised api client specified (if you were not expecting this error [i.e. you're not messing around with the source code!], please raise an issue at https://github.com/oblongmana/git-connect)"
+      end
+    end
+
+    def github_api_client
       @api_client ||= begin
         config_file = ENV['HUB_CONFIG'] || '~/.config/hub'
         file_store = GitHubAPI::FileStore.new File.expand_path(config_file)
@@ -1007,9 +1043,16 @@ module Hub
       str_to_wrap.scan(/\S.{0,#{width-2-spaces_to_indent}}\S(?=\s|$)|\S+/).map{|c| "\s"*spaces_to_indent+c}.join("\n")
     end
 
-    def github_user host = nil, &block
-      host ||= (local_repo(false) || Context::LocalRepo).default_host
-      api_client.config.username(host, &block)
+    def api_user type, host = nil, &block
+      puts "API_USER JUST CALLED"
+      if ![:github,:gitlab].include? type
+        abort "unrecognised api client specified for retrievining api username (if you were not expecting this error [i.e. you're not messing around with the source code!], please raise an issue at https://github.com/oblongmana/git-connect)"
+      end
+
+      # host ||= (local_repo(false) || Context::LocalRepo).default_host
+      host ||= (local_repo(false) || Context::LocalRepo).repo_host
+      puts "API_USER JUST OBTAINED HOST: #{host}"
+      api_client(type).config.username(host, &block)
     end
 
     def custom_command? cmd

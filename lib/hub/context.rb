@@ -3,6 +3,7 @@ require 'forwardable'
 require 'uri'
 
 module Hub
+
   # Methods for inspecting the environment, such as reading git config,
   # repository info, and other.
   module Context
@@ -119,6 +120,16 @@ module Hub
     class LocalRepo < Struct.new(:git_reader, :dir)
       include GitReaderMethods
 
+      def initialize(*args)
+        super
+        # puts "CALLER #{caller}"
+        # puts "SELF #{self}"
+        # puts "NEW LOCALREPO Object"
+        # puts "-----------START ARGS DUMP-----------"
+        # puts args
+        # puts "-----------THAT WAS THE ARGS-----------"
+      end
+
       def name
         if project = main_project
           project.name
@@ -134,7 +145,9 @@ module Hub
       end
 
       def repo_host
-        project = main_project and project.host
+        # puts "JUST CALLED REPO_HOST"
+        # puts "RETURNING FROM REPO_HOST with #{if main_project then main_project.host else default_host end}. default_host WAS #{default_host}"
+        host = if main_project then main_project.host else default_host end
       end
 
       def main_project
@@ -187,9 +200,23 @@ module Hub
         remotes.find {|r| r.name == remote_name }
       end
 
+      def hub_known_hosts
+        git_config('hub.host', :all).to_s.split("\n")
+      end
+
+      def lab_known_hosts
+        git_config('lab.host', :all).to_s.split("\n")
+      end
+
       def known_hosts
-        hosts = git_config('hub.host', :all).to_s.split("\n")
-        hosts << default_host
+        hosts =[]
+        hosts.push(*hub_known_hosts).push(*lab_known_hosts) << default_host
+        # puts "EXISTING HOSTS #{hosts}"
+        # hosts << default_host
+        # MAYBE THROW IN A CHECK HERE:
+        # IF HOSTS SIZE > 1 THAT MEANS THERE'S SOMETHING CUSTOM IN HOSTS,
+        # SO WE SHOUDL CHECK WHICH ONE YOU WANT TO USE. THAT SAID - IT MAY ALREADY BEHAVE THAT WAY?
+        # NEED TO RUN THE GIT CONFIG ADD THING AND TEST FIRST 
         # support ssh.github.com
         # https://help.github.com/articles/using-ssh-over-the-https-port
         hosts << "ssh.#{default_host}"
@@ -200,6 +227,7 @@ module Hub
       end
 
       def self.main_host
+        # @the_main_host ||= System.prompt_helper 'github.com', 'Enter git host domain (leave blank for github)'
         'github.com'
       end
 
@@ -213,8 +241,14 @@ module Hub
 
     class GithubProject < Struct.new(:local_repo, :owner, :name, :host)
       def self.from_url(url, local_repo)
+        # puts "SELF_FROM_URL"
+        # puts "url #{url}"
+        # puts "url.host #{url.host}"
         if local_repo.known_hosts.include? url.host
           _, owner, name = url.path.split('/', 4)
+          # puts "name #{name}"
+          # puts "owner #{owner}"
+          # puts "url.path.split('/', 4) #{url.path.split('/', 4)}"
           GithubProject.new(local_repo, owner, name.sub(/\.git$/, ''), url.host)
         end
       end
@@ -223,9 +257,16 @@ module Hub
 
       def initialize(*args)
         super
+        puts "INITIALIZE"
+        puts "owner #{owner}"
+        puts "name #{name}"
+        puts "host #{host}"
         self.name = self.name.tr(' ', '-')
-        self.host ||= (local_repo || LocalRepo).default_host
-        self.host = host.sub(/^ssh\./i, '') if 'ssh.github.com' == host.downcase
+        # self.host ||= (local_repo || LocalRepo).default_host
+        self.host ||= (local_repo || LocalRepo).repo_host
+        self.host = host.sub(/^ssh\./i, '') # if 'ssh.github.com' == host.downcase # commented out so ssh.x.com can be applied elsewhere
+        puts "host (again) #{host}"
+        puts "INITIALIZE END"
       end
 
       def private?
@@ -374,14 +415,17 @@ module Hub
 
     ## helper methods for local repo, GH projects
 
-    def github_project(name, owner = nil)
+    def github_project(name, owner = nil, host_override = nil)
+      # MAYBE ADD A "create" param to this, and prompt for host based on that?
+      # Or some kind of flag?
+      puts "INSIDE github_project HELPER METHOD"
       if owner and owner.index('/')
         owner, name = owner.split('/', 2)
       elsif name and name.index('/')
         owner, name = name.split('/', 2)
       else
         name ||= repo_name
-        owner ||= github_user
+        owner ||= api_user(:github)
       end
 
       if local_repo(false) and main_project = local_repo.main_project
@@ -390,11 +434,13 @@ module Hub
         project.name = name
         project
       else
-        GithubProject.new(local_repo(false), owner, name)
+        puts 'DOWN THE FALSE BRANCH for if local_repo(false) and main_project = local_repo.main_project'
+        GithubProject.new(local_repo(false), owner, name, host_override)
       end
     end
 
     def git_url(owner = nil, name = nil, options = {})
+      puts "GIT_URL WAS JUST CALLED"
       project = github_project(name, owner)
       project.git_url({:https => https_protocol?}.update(options))
     end
@@ -462,6 +508,14 @@ module Hub
       def osx?
         require 'rbconfig'
         RbConfig::CONFIG['host_os'].to_s.include?('darwin')
+      end
+
+      def self.prompt_helper default, what
+        $stdout.puts "#{what}: "
+        value = $stdin.gets.chomp
+        value.empty? ? default : value
+      rescue Interrupt
+        abort
       end
 
       def windows?

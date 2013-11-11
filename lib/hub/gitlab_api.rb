@@ -33,6 +33,7 @@ module Hub
     #   - auth_token(host, user)
     def initialize config
       @config = config
+      puts "__________GITLAB API CLIENT INSTANTIATED"
     end
 
     # Fake exception type for net/http exception handling.
@@ -56,11 +57,25 @@ module Hub
       res = post "https://%s/" % [api_host(gitlab_url)]
     end
 
-    # # Public: Fetch data for a specific repo.
-    # def repo_info project
-    #   get "https://%s/repos/%s/%s" %
-    #     [api_host(project.host), project.owner, project.name]
-    # end
+    # Public: Determine whether a specific repo exists.
+    def repo_exists? project
+      puts "CHECKING IF REPO EXISTS"
+      repo_list(project).any? { |repo| repo[:name] == project['name'] }
+    end
+
+    # Public: Fetch list of all repos for the authenticated user
+    def repo_list project
+      projects_endpoint = "http://%s/projects" % [api_host(project.host)]
+      repos_raw = get projects_endpoint
+      repos_info = repos_raw.data.collect { |project| Hash[:path=>project['path'],:name=>project['name'],:namespace=>project['namespace']['path']] }
+    end
+
+    # Public: Fetch data for a specific repo.
+    def repo_info project
+      repo_endpoint = "https://%s/projects/%s/%s" % [api_host(project.host), project.owner, project.name]
+      puts "CALLING REPO_LIST: " + repo_endpoint
+      get repo_endpoint
+    end
 
     # # Public: Fetch list of issues for a specific repo.
     # def repo_issues project, options = {}
@@ -76,10 +91,7 @@ module Hub
     #     [api_host(project.host), project.owner, project.name]
     # end
 
-    # # Public: Determine whether a specific repo exists.
-    # def repo_exists? project
-    #   repo_info(project).success?
-    # end
+    
 
     # # Public: Fork the specified repo.
     # def fork_repo project
@@ -88,21 +100,28 @@ module Hub
     #   res.error! unless res.success?
     # end
 
-    # # Public: Create a new project.
-    # def create_repo project, options = {}
-    #   is_org = project.owner.downcase != config.username(api_host(project.host)).downcase
-    #   params = { :name => project.name, :private => !!options[:private] }
-    #   params[:description] = options[:description] if options[:description]
-    #   params[:homepage]    = options[:homepage]    if options[:homepage]
+    # Public: Create a new project.
+    def create_repo project, options = {}
+      is_org = project.owner.downcase != config.username(api_host(project.host)).downcase
+      params = { :name => project.name, :public => !options[:private] }
+      params[:description]        = options[:description] if options[:description]
+      params[:homepage]           = options[:homepage]    if options[:homepage]
+      params[:issues_enabled]     = options[:issues_enabled]    if options[:issues_enabled]
+      params[:merge_requests_enabled] = true
 
-    #   if is_org
-    #     res = post "https://%s/orgs/%s/repos" % [api_host(project.host), project.owner], params
-    #   else
-    #     res = post "https://%s/user/repos" % api_host(project.host), params
-    #   end
-    #   res.error! unless res.success?
-    #   res.data
-    # end
+      puts "CREATE PARAMS: #{params}"
+
+      if is_org
+        abort "At present, creating repos for groups is not supported, as gitlab only exposes this functionality to admins. Please see http://feedback.gitlab.com/forums/176466-general/suggestions/4951912 and vote for this feature, which will enable this feature to be developed."
+        # res = post "https://%s/orgs/%s/repos" % [api_host(project.host), project.owner], params
+      else
+        res = post "https://%s/projects" % api_host(project.host), params
+      end
+      res.error! unless res.success?
+      res.data['full_name'] = res.data['path_with_namespace']
+      puts res.data
+      res.data
+    end
 
     # # Public: Create a new issue.
     # def create_issue project, options = {}
@@ -242,16 +261,24 @@ module Hub
         url = URI.parse url unless url.respond_to? :host
 
         require 'net/https'
+        puts "ABOUT TO PERFORM_REQUEST TO #{request_uri(url)}"
         req = Net::HTTP.const_get(type).new request_uri(url)
+        puts "REQ OBJECT: #{req}"
         # TODO: better naming?
         http = configure_connection(req, url) do |host_url|
           create_connection host_url
         end
 
+        puts "JUST CONFIGURED CONNECTION"
+
         req['User-Agent'] = "Hub #{Hub::VERSION}"
+        puts "AUTHENTICATION with #{req} #{url}"
+        puts respond_to? :apply_authentication
         apply_authentication(req, url) 
+        puts "AUTH DONE"
         yield req if block_given?
 
+        "PERFORM_REQUEST DOING ACTUAL SEND NOW"
         begin
           res = http.start { http.request(req) }
           res.extend ResponseMethods
@@ -279,12 +306,14 @@ module Hub
       end
 
       def apply_authentication req, url
+        puts "HttpMethods::AUTHENTICATION TIME"
         # This is only hit for new session
         #   Add login/pass to req body for auth
         #   Add Content-Type json header
         user = url.user || config.username(url.host)
         pass = config.password(url.host, user)
 
+        puts "HttpMethods::AUTH:DO HEADERS TIME"
         req['Content-Type'] = "application/json;charset=UTF-8"
         req.body = JSON.generate  "login" => user, "password" => pass 
       end
@@ -321,23 +350,32 @@ module Hub
         #   
         # If being hit in an already authorized context, returns a hash
         #   from the name of the required auth header to the token value
+        puts "Auth::AUTHENTICATION TIME"
         if (url.path =~ /\/session$/)
+          puts "Auth::session path"
           super
         else
+          puts "Auth::non-session path"
           # refresh = false
+          puts "config username #{config.username(url.host)}"
           user = url.user || config.username(url.host)
+          puts "Auth::got user, getting token"
           token = config.auth_token(url.host, user) {
             # refresh = true
             obtain_auth_token url.host, user
           }
+          puts "Auth::got token #{token}, setting header"
           # if refresh
           #   # get current user info user to persist correctly capitalized login name
           #   res = get "https://#{url.host}/user"
           #   res.error! unless res.success?
           #   config.update_username(url.host, user, res.data['login'])
           # end
-          {"PRIVATE-TOKEN",token}
-          # req['Authorization'] = "token #{token}"
+          # {"PRIVATE-TOKEN",token}
+          # 
+          
+          # THIS ISNT WORKING??!!
+          req['PRIVATE-TOKEN'] = "#{token}"
         end
       end
 
@@ -422,8 +460,10 @@ module Hub
       end
 
       def username host
+        puts "GETTING USERNAME FROM CONFIG"
         return ENV['GITLAB_USER'] unless ENV['GITLAB_USER'].to_s.empty?
         host = normalize_host host
+        puts "HOST: #{host}"
         @data.fetch_user host do
           if block_given? then yield
           else prompt "#{host} username"
@@ -448,7 +488,7 @@ module Hub
       end
 
       def prompt what
-        print "#{what}: "
+        puts "#{what}: "
         $stdin.gets.chomp
       rescue Interrupt
         abort
@@ -456,7 +496,7 @@ module Hub
 
       # special prompt that has hidden input
       def prompt_password host, user
-        print "#{host} password for #{user} (never stored): "
+        puts "#{host} password for #{user} (never stored): "
         if $stdin.tty?
           password = askpass
           puts ''
