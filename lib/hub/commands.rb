@@ -398,7 +398,7 @@ module Hub
             issues.each { |i| puts "\##{i['number']}: [#{i['state']}, #{'%.2f' % (DateTime.now() - DateTime.parse(i['created_at'])).to_f} days old] #{i['title']}"}
           end
         else
-          [No issues on this repository]
+          puts "[No issues on this repository]"
         end
         exit 0
       when "new"
