@@ -144,6 +144,12 @@ module Hub
         end
       end
 
+      def self.repo_host
+        # puts "JUST CALLED REPO_HOST"
+        # puts "RETURNING FROM REPO_HOST with #{if main_project then main_project.host else default_host end}. default_host WAS #{default_host}"
+        default_host
+      end
+
       def repo_host
         # puts "JUST CALLED REPO_HOST"
         # puts "RETURNING FROM REPO_HOST with #{if main_project then main_project.host else default_host end}. default_host WAS #{default_host}"
@@ -232,7 +238,7 @@ module Hub
       end
 
       extend Forwardable
-      def_delegators :'self.class', :default_host, :main_host
+      def_delegators :'self.class', :default_host, :main_host, :repo_host
 
       def ssh_config
         @ssh_config ||= SshConfig.new
