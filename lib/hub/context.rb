@@ -263,7 +263,13 @@ module Hub
         puts "host #{host}"
         self.name = self.name.tr(' ', '-')
         # self.host ||= (local_repo || LocalRepo).default_host
-        self.host ||= (local_repo || LocalRepo).repo_host
+        self.host ||= begin 
+          if local_repo
+            local_repo.repo_host
+          else
+            LocalRepo.default_host
+          end
+        end
         self.host = host.sub(/^ssh\./i, '') # if 'ssh.github.com' == host.downcase # commented out so ssh.x.com can be applied elsewhere
         puts "host (again) #{host}"
         puts "INITIALIZE END"
