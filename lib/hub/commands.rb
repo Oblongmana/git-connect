@@ -1050,7 +1050,13 @@ module Hub
       end
 
       # host ||= (local_repo(false) || Context::LocalRepo).default_host
-      host ||= (local_repo(false) || Context::LocalRepo).repo_host
+      host ||= begin 
+        if local_repo(false)
+          local_repo.repo_host
+        else
+          Context::LocalRepo.default_host
+        end
+      end
       puts "API_USER JUST OBTAINED HOST: #{host}"
       api_client(type).config.username(host, &block)
     end
