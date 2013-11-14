@@ -142,6 +142,18 @@ Open your User Settings for the [kemayo/sublime-text-git](https://github.com/kem
 }
 ~~~
 
+If you are on Windows, I've found you need to point to the `hub.bat` file produced by rake install (not just the plain `hub` file). Note also that as per the instructions on kemayo's repo, if you have any spaces in your path name, you may
+need to use the Short Path (the old C:/PROGRA~1 style format). If you get stuck working out a path that won't break, try the script `vbdir.vbs` that you can grab out of the discussion here: http://answers.google.com/answers/threadview/id/522710.html
+
+So depending on your Ruby setup, it might look something like this (note that I used `RailsInstaller` in my windows env):
+
+~~~ json
+{
+    "git_command": "C:/RailsInstaller/Ruby1.9.3/bin/hub.bat"
+}
+~~~
+
+
 As [kemayo/sublime-text-git](https://github.com/kemayo/sublime-text-git/) invokes the git program directly, this simply tells it that the 
 git program it should be invoking is our hub program.
 
