@@ -685,7 +685,7 @@ module Hub
         args.delete('-s')
         args.delete('--salesforce')
         args.after "echo", ["Retrieving Standard .gitignore"] 
-        args.after "curl", ["-#o", ".gitignore", "https://gist.github.com/Oblongmana/7130387/raw/.gitignore-sf"]
+        args.after "curl", ["-#o", ".gitignore", "https://gist.githubusercontent.com/Oblongmana/7130387/raw/.gitignore-sf"]
         args.after "echo", ["Creating empty README.md"] 
         args.after "touch", ["README.md"]
       end 
