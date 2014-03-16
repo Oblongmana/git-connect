@@ -211,15 +211,15 @@ superpowers:
 ### git am, git apply
 
     $ git am https://github.com/defunkt/hub/pull/55
-    > curl https://github.com/defunkt/hub/pull/55.patch -o /tmp/55.patch
+    [ downloads patch via API ]
     > git am /tmp/55.patch
 
     $ git am --ignore-whitespace https://github.com/davidbalbert/hub/commit/fdb9921
-    > curl https://github.com/davidbalbert/hub/commit/fdb9921.patch -o /tmp/fdb9921.patch
+    [ downloads patch via API ]
     > git am --ignore-whitespace /tmp/fdb9921.patch
 
     $ git apply https://gist.github.com/8da7fb575debd88c54cf
-    > curl https://gist.github.com/8da7fb575debd88c54cf.txt -o /tmp/gist-8da7fb575debd88c54cf.txt
+    [ downloads patch via API ]
     > git apply /tmp/gist-8da7fb575debd88c54cf.txt
 
 ### git fork
@@ -238,13 +238,10 @@ superpowers:
     # explicit title, pull base & head:
     $ git pull-request -m "Implemented feature X" -b defunkt:master -h mislav:feature
 
-    $ git pull-request -i 123
-    [ attached pull request to issue #123 ]
-
 ### git checkout
 
     $ git checkout https://github.com/defunkt/hub/pull/73
-    > git remote add -f -t feature git://github:com/mislav/hub.git
+    > git remote add -f -t feature mislav git://github.com/mislav/hub.git
     > git checkout --track -B mislav-feature mislav/feature
 
     $ git checkout https://github.com/defunkt/hub/pull/73 custom-branch-name
@@ -329,18 +326,18 @@ superpowers:
 
 ### git submodule
 
-    $ hub submodule add wycats/bundler vendor/bundler
+    $ git submodule add wycats/bundler vendor/bundler
     > git submodule add git://github.com/wycats/bundler.git vendor/bundler
 
-    $ hub submodule add -p wycats/bundler vendor/bundler
+    $ git submodule add -p wycats/bundler vendor/bundler
     > git submodule add git@github.com:wycats/bundler.git vendor/bundler
 
-    $ hub submodule add -b ryppl --name pip ryppl/pip vendor/pip
+    $ git submodule add -b ryppl --name pip ryppl/pip vendor/pip
     > git submodule add -b ryppl --name pip git://github.com/ryppl/pip.git vendor/pip
 
 ### git ci-status
 
-    $ hub ci-status [commit]
+    $ git ci-status [commit]
     > (prints CI state of commit and exits with appropriate code)
     > One of: success (0), error (1), failure (1), pending (2), no status (3)
 
@@ -404,6 +401,14 @@ These instructions assume that _you already have hub installed_ and aliased as
 8. Open a pull request describing your changes:  
     `git pull-request`
 
+
+Meta
+----
+
+* Home: <https://github.com/github/hub>
+* Bugs: <https://github.com/github/hub/issues>
+* Gem: <https://rubygems.org/gems/hub>
+* Authors: <https://github.com/github/hub/contributors>
 
 ### Prior art
 

@@ -1,7 +1,4 @@
-require 'uri'
-require 'yaml'
 require 'forwardable'
-require 'fileutils'
 
 module Hub
   # Client for the GitHub v3 API.
@@ -25,13 +22,15 @@ module Hub
     # Options:
     # - config: an object that implements:
     #   - username(host)
-    #   - api_token(host, user)
     #   - password(host, user)
     #   - oauth_token(host, user)
     def initialize config, options
       @config = config
       @oauth_app_url = options.fetch(:app_url)
+      @verbose = options.fetch(:verbose, false)
     end
+
+    def verbose?() @verbose end
 
     # Fake exception type for net/http exception handling.
     # Necessary because net/http may or may not be loaded at the time.
@@ -44,6 +43,19 @@ module Hub
     def api_host host
       host = host.downcase
       'github.com' == host ? 'api.github.com' : host
+    end
+
+    def username_via_auth_dance host
+      host = api_host(host)
+      config.username(host) do
+        if block_given?
+          yield
+        else
+          res = get("https://%s/user" % host)
+          res.error! unless res.success?
+          config.value_to_persist(res.data['login'])
+        end
+      end
     end
 
     # Public: Fetch data for a specific repo.
@@ -80,7 +92,7 @@ module Hub
 
     # Public: Create a new project.
     def create_repo project, options = {}
-      is_org = project.owner.downcase != config.username(api_host(project.host)).downcase
+      is_org = project.owner.downcase != username_via_auth_dance(project.host).downcase
       params = { :name => project.name, :private => !!options[:private] }
       params[:description] = options[:description] if options[:description]
       params[:homepage]    = options[:homepage]    if options[:homepage]
@@ -129,6 +141,38 @@ module Hub
       res.data
     end
 
+    # Public: Fetch a pull request's patch
+    def pullrequest_patch project, pull_id
+      res = get "https://%s/repos/%s/%s/pulls/%d" %
+        [api_host(project.host), project.owner, project.name, pull_id] do |req|
+          req["Accept"] = "application/vnd.github.v3.patch"
+        end
+      res.error! unless res.success?
+      res.body
+    end
+
+    # Public: Fetch the patch from a commit
+    def commit_patch project, sha
+      res = get "https://%s/repos/%s/%s/commits/%s" %
+        [api_host(project.host), project.owner, project.name, sha] do |req|
+          req["Accept"] = "application/vnd.github.v3.patch"
+        end
+      res.error! unless res.success?
+      res.body
+    end
+
+    # Public: Fetch the first raw blob from a gist
+    def gist_raw gist_id
+      res = get("https://%s/gists/%s" % [api_host('github.com'), gist_id])
+      res.error! unless res.success?
+      raw_url = res.data['files'].values.first['raw_url']
+      res = get(raw_url) do |req|
+        req['Accept'] = 'text/plain'
+      end
+      res.error! unless res.success?
+      res.body
+    end
+
     # Returns parsed data from the new pull request.
     def create_pullrequest options
       project = options.fetch(:project)
@@ -164,7 +208,6 @@ module Hub
     # Requires access to a `config` object that implements:
     # - proxy_uri(with_ssl)
     # - username(host)
-    # - update_username(host, old_username, new_username)
     # - password(host, user)
     module HttpMethods
       # Decorator for Net::HTTPResponse
@@ -181,6 +224,8 @@ module Hub
             when 'custom'        then err['message']
             when 'missing_field'
               %(Missing field: "%s") % err['field']
+            when 'already_exists'
+              %(Duplicate value for "%s") % err['field']
             when 'invalid'
               %(Invalid value for "%s": "%s") % [ err['field'], err['value'] ]
             when 'unauthorized'
@@ -240,6 +285,7 @@ module Hub
         req['User-Agent'] = "Hub #{Hub::VERSION}"
         apply_authentication(req, url)
         yield req if block_given?
+        finalize_request(req, url)
 
         begin
           res = http.start { http.request(req) }
@@ -252,13 +298,15 @@ module Hub
 
       def request_uri url
         str = url.request_uri
-        str = '/api/v3' << str if url.host != 'api.github.com'
+        str = '/api/v3' << str if url.host != 'api.github.com' && url.host != 'gist.github.com'
         str
       end
 
       def configure_connection req, url
+        url.scheme = config.protocol(url.host)
         if ENV['HUB_TEST_HOST']
           req['Host'] = url.host
+          req['X-Original-Scheme'] = url.scheme
           url = url.dup
           url.scheme = 'http'
           url.host, test_port = ENV['HUB_TEST_HOST'].split(':')
@@ -268,9 +316,15 @@ module Hub
       end
 
       def apply_authentication req, url
-        user = url.user || config.username(url.host)
+        user = url.user ? CGI.unescape(url.user) : config.username(url.host)
         pass = config.password(url.host, user)
         req.basic_auth user, pass
+      end
+
+      def finalize_request(req, url)
+        if !req['Accept'] || req['Accept'] == '*/*'
+          req['Accept'] = 'application/vnd.github.v3+json'
+        end
       end
 
       def create_connection url
@@ -280,7 +334,6 @@ module Hub
         if proxy = config.proxy_uri(use_ssl)
           proxy_args << proxy.host << proxy.port
           if proxy.userinfo
-            require 'cgi'
             # proxy user + password
             proxy_args.concat proxy.userinfo.split(':', 2).map {|a| CGI.unescape a }
           end
@@ -298,28 +351,25 @@ module Hub
 
     module OAuth
       def apply_authentication req, url
-        if (req.path =~ /\/authorizations$/)
+        if req.path =~ %r{^(/api/v3)?/authorizations$}
           super
         else
-          refresh = false
-          user = url.user || config.username(url.host)
+          user = url.user ? CGI.unescape(url.user) : config.username(url.host)
           token = config.oauth_token(url.host, user) {
-            refresh = true
             obtain_oauth_token url.host, user
           }
-          if refresh
-            # get current user info user to persist correctly capitalized login name
-            res = get "https://#{url.host}/user"
-            res.error! unless res.success?
-            config.update_username(url.host, user, res.data['login'])
-          end
           req['Authorization'] = "token #{token}"
         end
       end
 
       def obtain_oauth_token host, user, two_factor_code = nil
+        auth_url = URI.parse("https://%s@%s/authorizations" % [CGI.escape(user), host])
+
+        # dummy request to trigger a 2FA SMS since a HTTP GET won't do it
+        post(auth_url) if !two_factor_code
+
         # first try to fetch existing authorization
-        res = get "https://#{user}@#{host}/authorizations" do |req|
+        res = get(auth_url) do |req|
           req['X-GitHub-OTP'] = two_factor_code if two_factor_code
         end
         unless res.success?
@@ -331,11 +381,11 @@ module Hub
           end
         end
 
-        if found = res.data.find {|auth| auth['app']['url'] == oauth_app_url }
+        if found = res.data.find {|auth| auth['note'] == 'hub' || auth['note_url'] == oauth_app_url }
           found['token']
         else
           # create a new authorization
-          res = post "https://#{user}@#{host}/authorizations",
+          res = post auth_url,
             :scopes => %w[repo], :note => 'hub', :note_url => oauth_app_url do |req|
               req['X-GitHub-OTP'] = two_factor_code if two_factor_code
             end
@@ -345,8 +395,69 @@ module Hub
       end
     end
 
+    module GistAuth
+      def apply_authentication(req, url)
+        super unless url.host == 'gist.github.com'
+      end
+    end
+
+    module Verbose
+      def finalize_request(req, url)
+        super
+        dump_request_info(req, url) if verbose?
+      end
+
+      def perform_request(*)
+        res = super
+        dump_response_info(res) if verbose?
+        res
+      end
+
+      def verbose_puts(msg)
+        msg = "\e[36m%s\e[m" % msg if $stderr.tty?
+        $stderr.puts msg
+      end
+
+      def dump_request_info(req, url)
+        verbose_puts "> %s %s://%s%s" % [
+          req.method.to_s.upcase,
+          url.scheme,
+          url.host,
+          req.path,
+        ]
+        dump_headers(req, '> ')
+        dump_body(req)
+      end
+
+      def dump_response_info(res)
+        verbose_puts "< HTTP %s" % res.status
+        dump_headers(res, '< ')
+        dump_body(res)
+      end
+
+      def dump_body(obj)
+        verbose_puts obj.body if obj.body
+      end
+
+      DUMP_HEADERS = %w[ Authorization X-GitHub-OTP Location ]
+
+      def dump_headers(obj, indent)
+        DUMP_HEADERS.each do |header|
+          if value = obj[header]
+            verbose_puts '%s%s: %s' % [
+              indent,
+              header,
+              value.sub(/^(basic|token) (.+)/i, '\1 [REDACTED]'),
+            ]
+          end
+        end
+      end
+    end
+
     include HttpMethods
     include OAuth
+    include GistAuth
+    include Verbose
 
     # Filesystem store suitable for Configuration
     class FileStore
@@ -357,47 +468,83 @@ module Hub
       def initialize filename
         @filename = filename
         @data = Hash.new {|d, host| d[host] = [] }
+        @persist_next_change = false
         load if File.exist? filename
       end
 
-      def fetch_user host
-        unless entry = get(host).first
-          user = yield
-          # FIXME: more elegant handling of empty strings
-          return nil if user.nil? or user.empty?
-          entry = entry_for_user(host, user)
-        end
-        entry['user']
-      end
-
       def fetch_value host, user, key
-        entry = entry_for_user host, user
-        entry[key.to_s] || begin
+        entries = get(host)
+        entries << {} if entries.empty?
+        entry = entries.first
+        entry.fetch(key.to_s) {
           value = yield
-          if value and !value.empty?
-            entry[key.to_s] = value
-            save
-            value
-          else
-            raise "no value"
-          end
-        end
+          raise "no value for key :#{key}" if value.nil? || value.empty?
+          entry[key.to_s] = value
+          save_if_needed
+          value
+        }
       end
 
-      def entry_for_user host, username
-        entries = get(host)
-        entries.find {|e| e['user'] == username } or
-          (entries << {'user' => username}).last
+      def persist_next_change!
+        @persist_next_change = true
+      end
+
+      def save_if_needed
+        @persist_next_change && save
+        @persist_next_change = false
       end
 
       def load
         existing_data = File.read(@filename)
-        @data.update YAML.load(existing_data) unless existing_data.strip.empty?
+        @data.update yaml_load(existing_data) unless existing_data.strip.empty?
       end
 
       def save
-        FileUtils.mkdir_p File.dirname(@filename)
-        File.open(@filename, 'w', 0600) {|f| f << YAML.dump(@data) }
+        mkdir_p File.dirname(@filename)
+        File.open(@filename, 'w', 0600) {|f| f << yaml_dump(@data) }
+      end
+
+      def mkdir_p(dir)
+        dir.split('/').inject do |parent, name|
+          d = File.join(parent, name)
+          Dir.mkdir(d) unless File.exist?(d)
+          d
+        end
+      end
+
+      def yaml_load(string)
+        hash = {}
+        host = nil
+        string.split("\n").each do |line|
+          case line
+          when /^---\s*$/, /^\s*(?:#|$)/
+            # ignore
+          when /^(.+):\s*$/
+            host = hash[$1] = []
+          when /^([- ]) (.+?): (.+)/
+            key, value = $2, $3
+            host << {} if $1 == '-'
+            host.last[key] = value.gsub(/^'|'$/, '')
+          else
+            raise "unsupported YAML line: #{line}"
+          end
+        end
+        hash
+      end
+
+      def yaml_dump(data)
+        yaml = ['---']
+        data.each do |host, values|
+          yaml << "#{host}:"
+          values.each do |hash|
+            dash = '-'
+            hash.each do |key, value|
+              yaml << "#{dash} #{key}: #{value}"
+              dash = ' '
+            end
+          end
+        end
+        yaml.join("\n")
       end
     end
 
@@ -418,24 +565,9 @@ module Hub
       def username host
         return ENV['GITHUB_USER'] unless ENV['GITHUB_USER'].to_s.empty?
         host = normalize_host host
-        @data.fetch_user host do
+        @data.fetch_value(host, nil, :user) do
           if block_given? then yield
           else prompt "#{host} username"
-          end
-        end
-      end
-
-      def update_username host, old_username, new_username
-        entry = @data.entry_for_user(normalize_host(host), old_username)
-        entry['user'] = new_username
-        @data.save
-      end
-
-      def api_token host, user
-        host = normalize_host host
-        @data.fetch_value host, user, :api_token do
-          if block_given? then yield
-          else prompt "#{host} API token for #{user}"
           end
         end
       end
@@ -446,14 +578,28 @@ module Hub
         @password_cache["#{user}@#{host}"] ||= prompt_password host, user
       end
 
-      def oauth_token host, user, &block
-        @data.fetch_value normalize_host(host), user, :oauth_token, &block
+      def oauth_token host, user
+        host = normalize_host(host)
+        @data.fetch_value(host, user, :oauth_token) do
+          value_to_persist(yield)
+        end
+      end
+
+      def protocol host
+        host = normalize_host host
+        @data.fetch_value(host, nil, :protocol) { 'https' }
+      end
+
+      def value_to_persist(value = nil)
+        @data.persist_next_change!
+        value
       end
 
       def prompt what
         print "#{what}: "
         $stdin.gets.chomp
       rescue Interrupt
+        puts
         abort
       end
 
@@ -469,6 +615,7 @@ module Hub
           $stdin.gets.chomp
         end
       rescue Interrupt
+        puts
         abort
       end
 
@@ -476,6 +623,7 @@ module Hub
         print "two-factor authentication code: "
         $stdin.gets.chomp
       rescue Interrupt
+        puts
         abort
       end
 
@@ -483,10 +631,23 @@ module Hub
                File.exist?('/dev/null') ? '/dev/null' : 'NUL'
 
       def askpass
+        noecho $stdin do |input|
+          input.gets.chomp
+        end
+      end
+
+      def noecho io
+        require 'io/console'
+        io.noecho { yield io }
+      rescue LoadError
+        fallback_noecho io
+      end
+
+      def fallback_noecho io
         tty_state = `stty -g 2>#{NULL}`
         system 'stty raw -echo -icanon isig' if $?.success?
         pass = ''
-        while char = getbyte($stdin) and !(char == 13 or char == 10)
+        while char = getbyte(io) and !(char == 13 or char == 10)
           if char == 127 or char == 8
             pass[-1,1] = '' unless pass.empty?
           else

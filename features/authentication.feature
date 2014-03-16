@@ -40,9 +40,39 @@ Feature: OAuth authentication
         auth = Rack::Auth::Basic::Request.new(env)
         halt 401 unless auth.credentials == %w[mislav kitty]
         json [
-          {:token => 'SKIPPD', :app => {:url => 'http://example.com'}},
-          {:token => 'OTOKEN', :app => {:url => 'http://hub.github.com/'}}
+          {:token => 'SKIPPD', :note_url => 'http://example.com'},
+          {:token => 'OTOKEN', :note_url => 'http://hub.github.com/'}
         ]
+      }
+      get('/user') {
+        json :login => 'mislav'
+      }
+      post('/user/repos') {
+        json :full_name => 'mislav/dotfiles'
+      }
+      """
+    When I run `hub create` interactively
+    When I type "mislav"
+    And I type "kitty"
+    Then the output should contain "github.com password for mislav (never stored):"
+    And the exit status should be 0
+    And the file "../home/.config/hub" should contain "oauth_token: OTOKEN"
+
+  Scenario: Re-use existing authorization with an old URL
+    Given the GitHub API server:
+      """
+      require 'rack/auth/basic'
+      get('/authorizations') {
+        auth = Rack::Auth::Basic::Request.new(env)
+        halt 401 unless auth.credentials == %w[mislav kitty]
+        json [
+          {:token => 'OTOKEN', :note => 'hub', :note_url => 'http://defunkt.io/hub/'}
+        ]
+      }
+      post('/authorizations') {
+        status 422
+        json :message => "Validation Failed",
+          :errors => [{:resource => "OauthAccess", :code => "already_exists", :field => "description"}]
       }
       get('/user') {
         json :login => 'mislav'
@@ -66,7 +96,7 @@ Feature: OAuth authentication
         auth = Rack::Auth::Basic::Request.new(env)
         halt 401 unless auth.credentials == %w[mislav kitty]
         json [
-          {:token => 'OTOKEN', :app => {:url => 'http://hub.github.com/'}}
+          {:token => 'OTOKEN', :note_url => 'http://hub.github.com/'}
         ]
       }
       get('/user') {
@@ -114,6 +144,7 @@ Feature: OAuth authentication
       post('/authorizations') {
         auth = Rack::Auth::Basic::Request.new(env)
         halt 401 unless auth.credentials == %w[mislav kitty]
+        halt 412 unless params[:scopes]
         if request.env['HTTP_X_GITHUB_OTP'] != "112233"
           response.headers['X-GitHub-OTP'] = "required;application"
           halt 401
@@ -139,15 +170,22 @@ Feature: OAuth authentication
   Scenario: Two-factor authentication, re-use existing authorization
     Given the GitHub API server:
       """
-      require 'rack/auth/basic'
+      token = 'OTOKEN'
+      post('/authorizations') {
+        assert_basic_auth 'mislav', 'kitty'
+        token << 'SMS'
+        status 412
+      }
       get('/authorizations') {
-        auth = Rack::Auth::Basic::Request.new(env)
-        halt 401 unless auth.credentials == %w[mislav kitty]
+        assert_basic_auth 'mislav', 'kitty'
         if request.env['HTTP_X_GITHUB_OTP'] != "112233"
           response.headers['X-GitHub-OTP'] = "required;application"
           halt 401
         end
-        json [ {:token => 'OTOKEN', :app => {:url => 'http://hub.github.com/'}} ]
+        json [ {
+          :token => token,
+          :note_url => 'http://hub.github.com/'
+          } ]
       }
       get('/user') {
         json :login => 'mislav'
@@ -163,29 +201,25 @@ Feature: OAuth authentication
     Then the output should contain "github.com password for mislav (never stored):"
     Then the output should contain "two-factor authentication code:"
     And the exit status should be 0
-    And the file "../home/.config/hub" should contain "oauth_token: OTOKEN"
+    And the file "../home/.config/hub" should contain "oauth_token: OTOKENSMS"
 
   Scenario: Special characters in username & password
     Given the GitHub API server:
       """
-      require 'rack/auth/basic'
       get('/authorizations') { '[]' }
       post('/authorizations') {
-        auth = Rack::Auth::Basic::Request.new(env)
-        halt 401 unless auth.credentials == [
-          'mislav:m@example.com',
-          'my pass@phrase ok?'
-        ]
+        assert_basic_auth 'mislav@example.com', 'my pass@phrase ok?'
         json :token => 'OTOKEN'
       }
       get('/user') {
         json :login => 'mislav'
       }
-      post('/user/repos') {
-        json :full_name => 'mislav/dotfiles'
-      }
+      get('/repos/mislav/dotfiles') { status 200 }
       """
     When I run `hub create` interactively
-    When I type "mislav:m@example.com"
+    When I type "mislav@example.com"
     And I type "my pass@phrase ok?"
-    Then the exit status should be 0
+    Then the output should contain "github.com password for mislav@example.com (never stored):"
+    And the exit status should be 0
+    And the file "../home/.config/hub" should contain "user: mislav"
+    And the file "../home/.config/hub" should contain "oauth_token: OTOKEN"

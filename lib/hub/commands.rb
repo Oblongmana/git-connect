@@ -80,7 +80,7 @@ module Hub
       ref = args.words.first || 'HEAD'
       verbose = args.include?('-v')
 
-      unless head_project = local_repo.current_project
+      unless project = local_repo.main_project
         abort "Aborted: the origin remote doesn't point to a GitHub repository."
       end
 
@@ -88,7 +88,7 @@ module Hub
         abort "Aborted: no revision could be determined from '#{ref}'"
       end
 
-      statuses = api_client.statuses(head_project, sha)
+      statuses = api_client.statuses(project, sha)
       status = statuses.first
       if status
         ref_state = status['state']
@@ -111,18 +111,21 @@ module Hub
         $stdout.puts ref_state
       end
       exit exit_code
+    rescue GitHubAPI::Exceptions
+      response = $!.response
+      display_api_exception("fetching CI status", response)
+      exit 1
     end
 
     # $ hub pull-request
     # $ hub pull-request "My humble contribution"
-    # $ hub pull-request -i 92
     # $ hub pull-request https://github.com/rtomayko/tilt/issues/92
     def pull_request(args)
       args.shift
       options = { }
       force = explicit_owner = false
       base_project = local_repo.main_project
-      head_project = local_repo.current_project
+      tracked_branch, head_project = remote_branch_and_project(method(:github_user))
 
       unless current_branch
         abort "Aborted: not currently on any branch."
@@ -159,11 +162,13 @@ module Hub
           head_project, options[:head] = from_github_ref.call(head, head_project)
         when '-i'
           options[:issue] = args.shift
+        when '-o', '--browse'
+          open_with_browser = true
         else
           if url = resolve_github_url(arg) and url.project_path =~ /^issues\/(\d+)/
             options[:issue] = $1
             base_project = url.project
-          elsif !options[:title]
+          elsif !options[:title] && arg.index('-') != 0
             options[:title] = arg
             warn "hub: Specifying pull request title without a flag is deprecated."
             warn "Please use one of `-m' or `-F' options."
@@ -173,10 +178,14 @@ module Hub
         end
       end
 
+      if options[:issue]
+        warn "Warning: Issue to pull request conversion is deprecated and might not work in the future."
+      end
+
       options[:project] = base_project
       options[:base] ||= master_branch.short_name
 
-      if tracked_branch = options[:head].nil? && current_branch.upstream
+      if options[:head].nil? && tracked_branch
         if !tracked_branch.remote?
           # The current branch is tracking another local branch. Pretend there is
           # no upstream configuration at all.
@@ -188,12 +197,6 @@ module Hub
         end
       end
       options[:head] ||= (tracked_branch || current_branch).short_name
-
-      # when no tracking, assume remote branch is published under active user's fork
-      user = github_user(head_project.host)
-      if head_project.owner != user and !tracked_branch and !explicit_owner
-        head_project = head_project.owned_by(user)
-      end
 
       remote_branch = "#{head_project.remote}/#{options[:head]}"
       options[:head] = "#{head_project.owner}:#{options[:head]}"
@@ -240,8 +243,10 @@ module Hub
 
       pull = api_client.create_pullrequest(options)
 
-      args.executable = 'echo'
-      args.replace [pull['html_url']]
+      args.push('-u') unless open_with_browser
+      browse_command(args) do
+        pull['html_url']
+      end
     rescue GitHubAPI::Exceptions
       response = $!.response
       display_api_exception("creating pull request", response)
@@ -298,7 +303,10 @@ module Hub
             name, owner = arg, nil
             owner, name = name.split('/', 2) if name.index('/')
             project = github_project(name, owner || github_user)
-            ssh ||= args[0] != 'submodule' && project.owner == github_user(project.host) { }
+            unless ssh || args[0] == 'submodule' || args.noop? || https_protocol?
+              repo_info = api_client.repo_info(project)
+              ssh = repo_info.success? && (repo_info.data['private'] || repo_info.data['permissions']['push'])
+            end
             args[idx] = project.git_url(:private => ssh, :https => https_protocol?)
             if !salesforce.empty? 
               args.after "/Applications/MavensMate.app/Contents/Resources/mm/mm", 
@@ -588,16 +596,18 @@ module Hub
         user, branch = pull_data['head']['label'].split(':', 2)
         abort "Error: #{user}'s fork is not available anymore" unless pull_data['head']['repo']
 
-        url = github_project(url.project_name, user).git_url(:private => pull_data['head']['repo']['private'],
-                                                             :https => https_protocol?)
+        repo_name = pull_data['head']['repo']['name']
+        url = github_project(repo_name, user).git_url(:private => pull_data['head']['repo']['private'],
+                                                      :https => https_protocol?)
 
         merge_head = "#{user}/#{branch}"
         args.before ['fetch', url, "+refs/heads/#{branch}:refs/remotes/#{merge_head}"]
 
         idx = args.index url_arg
         args.delete_at idx
-        args.insert idx, merge_head, '--no-ff', '-m',
-                    "Merge pull request ##{pull_id} from #{merge_head}\n\n#{pull_data['title']}"
+        args.insert idx, merge_head, '-m', "Merge pull request ##{pull_id} from #{merge_head}\n\n#{pull_data['title']}"
+        idx = args.index '-m'
+        args.insert idx, '--no-ff' unless args.include?('--ff-only')
       end
     end
 
@@ -636,27 +646,40 @@ module Hub
     end
 
     # $ hub am https://github.com/defunkt/hub/pull/55
-    # > curl https://github.com/defunkt/hub/pull/55.patch -o /tmp/55.patch
+    # ... downloads patch via API ...
     # > git am /tmp/55.patch
     def am(args)
       if url = args.find { |a| a =~ %r{^https?://(gist\.)?github\.com/} }
         idx = args.index(url)
-        gist = $1 == 'gist.'
-        # strip the fragment part of the url
-        url = url.sub(/#.+/, '')
-        # strip extra path from "pull/42/files", "pull/42/commits"
-        url = url.sub(%r{(/pull/\d+)/\w*$}, '\1') unless gist
-        ext = gist ? '.txt' : '.patch'
-        url += ext unless File.extname(url) == ext
-        patch_file = File.join(tmp_dir, "#{gist ? 'gist-' : ''}#{File.basename(url)}")
-        # TODO: remove dependency on curl
-        args.before 'curl', ['-#LA', "hub #{Hub::Version}", url, '-o', patch_file]
+        if $1 == 'gist.'
+          path_parts = $'.sub(/#.*/, '').split('/')
+          gist_id = path_parts.last
+          patch_name = "gist-#{gist_id}.txt"
+          patch = api_client.gist_raw(gist_id)
+        else
+          gh_url = resolve_github_url(url)
+          case gh_url.project_path
+          when /^pull\/(\d+)/
+            pull_id = $1.to_i
+            patch_name = "#{pull_id}.patch"
+            patch = api_client.pullrequest_patch(gh_url.project, pull_id)
+          when /^commit\/([a-f0-9]{7,40})/
+            commit_sha = $1
+            patch_name = "#{commit_sha}.patch"
+            patch = api_client.commit_patch(gh_url.project, commit_sha)
+          else
+            raise ArgumentError, url
+          end
+        end
+
+        patch_file = File.join(tmp_dir, patch_name)
+        File.open(patch_file, 'w') { |file| file.write(patch) }
         args[idx] = patch_file
       end
     end
 
     # $ hub apply https://github.com/defunkt/hub/pull/55
-    # > curl https://github.com/defunkt/hub/pull/55.patch -o /tmp/55.patch
+    # ... downloads patch via API ...
     # > git apply /tmp/55.patch
     alias_method :apply, :am
 
@@ -716,8 +739,10 @@ module Hub
       if args.include?('--no-remote')
         exit
       else
+        origin_url = project.remote.github_url
         url = forked_project.git_url(:private => true, :https => https_protocol?)
-        args.replace %W"remote add -f #{forked_project.owner} #{url}"
+        args.replace %W"remote add -f #{forked_project.owner} #{origin_url}"
+        args.after %W"remote set-url #{forked_project.owner} #{url}"
         args.after 'echo', ['new remote:', forked_project.owner]
       end
     rescue GitHubAPI::Exceptions
@@ -820,23 +845,27 @@ module Hub
       browse_command(args) do
         dest = args.shift
         dest = nil if dest == '--'
+        # $ hub browse -- wiki
+        subpage = args.shift
 
         if dest
           # $ hub browse pjhyett/github-services
           # $ hub browse github-services
           project = github_project dest
           branch = master_branch
+        elsif subpage && !%w[commits tree blob settings].include?(subpage)
+          branch = master_branch
+          project = local_repo.main_project
         else
           # $ hub browse
-          project = current_project
-          branch = current_branch && current_branch.upstream || master_branch
+          prefer_upstream = current_branch.master?
+          branch, project = remote_branch_and_project(method(:github_user), prefer_upstream)
+          branch ||= master_branch
         end
 
         abort "Usage: hub browse [<USER>/]<REPOSITORY>" unless project
 
-        require 'cgi'
-        # $ hub browse -- wiki
-        path = case subpage = args.shift
+        path = case subpage
         when 'commits'
           "/commits/#{branch_in_url(branch)}"
         when 'tree', NilClass
@@ -845,7 +874,7 @@ module Hub
           "/#{subpage}"
         end
 
-        project.web_url(path)
+        project.web_url(path, api_client.config.method(:protocol))
       end
     end
 
@@ -860,11 +889,10 @@ module Hub
     def compare(args)
       args.shift
       browse_command(args) do
+        branch, project = remote_branch_and_project(method(:github_user))
         if args.empty?
-          branch = current_branch.upstream
           if branch and not branch.master?
             range = branch.short_name
-            project = current_project
           else
             abort "Usage: hub compare [USER] [<START>...]<END>"
           end
@@ -872,12 +900,13 @@ module Hub
           sha_or_tag = /((?:#{OWNER_RE}:)?\w[\w.-]+\w)/
           # replaces two dots with three: "sha1...sha2"
           range = args.pop.sub(/^#{sha_or_tag}\.\.#{sha_or_tag}$/, '\1...\2')
-          project = if owner = args.pop then github_project(nil, owner)
-                    else current_project
-                    end
+          if owner = args.pop
+            project = project.owned_by(owner)
+          end
         end
 
-        project.web_url "/compare/#{range}"
+        path = '/compare/%s' % range.tr('/', ';')
+        project.web_url(path, api_client.config.method(:protocol))
       end
     end
 
@@ -974,7 +1003,6 @@ module Hub
     #
 
     def branch_in_url(branch)
-      require 'cgi'
       CGI.escape(branch.short_name).gsub("%2F", "/")
     end
 
@@ -983,7 +1011,9 @@ module Hub
         config_file = ENV['HUB_CONFIG'] || '~/.config/hub'
         file_store = GitHubAPI::FileStore.new File.expand_path(config_file)
         file_config = GitHubAPI::Configuration.new file_store
-        GitHubAPI.new file_config, :app_url => 'http://hub.github.com/'
+        GitHubAPI.new file_config,
+          :app_url => 'http://hub.github.com/',
+          :verbose => !ENV['HUB_VERBOSE'].to_s.empty?
       end
     end
 
@@ -994,7 +1024,7 @@ module Hub
 
     def github_user host = nil, &block
       host ||= (local_repo(false) || Context::LocalRepo).default_host
-      api_client.config.username(host, &block)
+      api_client.username_via_auth_dance(host, &block)
     end
 
     def custom_command? cmd
@@ -1165,7 +1195,7 @@ help
     # included after the __END__ of the file so we can grab it using
     # DATA.
     def hub_raw_manpage
-      if File.exists? file = File.dirname(__FILE__) + '/../../man/hub.1'
+      if File.exist? file = File.dirname(__FILE__) + '/../../man/hub.1'
         File.read(file)
       else
         DATA.read
@@ -1192,7 +1222,7 @@ help
         write.close
 
         # Don't page if the input is short enough
-        ENV['LESS'] = 'FSRX'
+        ENV['LESS'] = 'FSR'
 
         # Wait until we have input before we start the pager
         Kernel.select [STDIN]
@@ -1252,7 +1282,7 @@ help
     # the pullrequest_editmsg_file, which newer hub would pick up and
     # misinterpret as a message which should be reused after a failed PR.
     def valid_editmsg_file?(message_file)
-      File.exists?(message_file) &&
+      File.exist?(message_file) &&
         File.mtime(message_file) > File.mtime(__FILE__)
     end
 
@@ -1269,7 +1299,7 @@ help
       File.open(file, 'r') { |msg|
         msg.each_line do |line|
           next if line.index('#') == 0
-          ((body.empty? and line =~ /\S/) ? title : body) << line
+          ((title.empty? and line =~ /\S/) ? title : body) << line
         end
       }
       title.tr!("\n", ' ')
