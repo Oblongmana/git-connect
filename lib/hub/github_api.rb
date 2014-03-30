@@ -68,6 +68,13 @@ module Hub
     def repo_issues project, options = {}
       params = {}
       params[:state]        = options[:state]      if options[:state]
+      # print api_host(project.host)
+      # print project.owner
+      # print project.name
+
+      # print (get_with_params "https://%s/repos/%s/%s/issues" %
+      #   [api_host(project.host), project.owner, project.name], params).data
+
       get_with_params "https://%s/repos/%s/%s/issues" %
         [api_host(project.host), project.owner, project.name], params
     end

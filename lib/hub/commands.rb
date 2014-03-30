@@ -389,25 +389,30 @@ module Hub
         closed = !!args.delete('-c')
         verbose = !!args.delete('-v')
 
+        branch, project = remote_branch_and_project(method(:github_user))
+
         params = {}
         if (closed) then params[:state] = "closed" end
-        issues = api_client.repo_issues(current_project,params).data
+
+        issues = api_client.repo_issues(project,params).data
+
         
         if issues then
           if verbose then
-            puts "\nISSUES\n======\n\n"
+            $stdout.puts "\nISSUES\n======\n\n"
             issues.each_with_index do |issue,index|
-              puts word_wrap("ISSUE: #{issue['title']}")
-              puts issue['title'].length < 80 ? '-'*issue['title'].length : '-'*80
-              puts "Issue Number:\n#{word_wrap(issue['number'].to_s,tab_size,wrap_size)}"
-              puts "Created:\n#{word_wrap(issue['created_at'],tab_size,wrap_size)}"
-              puts "State:\n#{word_wrap(issue['state'],tab_size,wrap_size)}"
-              puts "Assigned to:\n #{word_wrap(issue['assignee'].nil? ? "[Not assigned to anyone]" : issue['assignee']['login'],tab_size,wrap_size)}"
-              puts "Body:\n#{word_wrap(issue['body'].nil? ? "[Issue has no body]" : issue['body'],tab_size,wrap_size)}"
-              puts "\n \n"
+              $stdout.puts word_wrap("ISSUE: #{issue['title']}")
+              $stdout.puts issue['title'].length < 80 ? '-'*issue['title'].length : '-'*80
+              $stdout.puts "Issue Number:\n#{word_wrap(issue['number'].to_s,tab_size,wrap_size)}"
+              $stdout.puts "Created:\n#{word_wrap(issue['created_at'],tab_size,wrap_size)}"
+              $stdout.puts "State:\n#{word_wrap(issue['state'],tab_size,wrap_size)}"
+              $stdout.puts "Assigned to:\n #{word_wrap(issue['assignee'].nil? ? "[Not assigned to anyone]" : issue['assignee']['login'],tab_size,wrap_size)}"
+              $stdout.puts "Body:\n#{word_wrap(issue['body'].nil? ? "[Issue has no body]" : issue['body'],tab_size,wrap_size)}"
+              $stdout.puts "\n \n"
             end
           else
-            issues.each { |i| puts "\##{i['number']}: [#{i['state']}, #{'%.2f' % (DateTime.now() - DateTime.parse(i['created_at'])).to_f} days old] #{i['title']}"}
+            require 'date'
+            issues.each { |i| $stdout.puts "\##{i['number']}: [#{i['state']}, #{'%.2f' % (DateTime.now() - DateTime.parse(i['created_at'])).to_f} days old] #{i['title']}"}
           end
         else
           [No issues on this repository]
@@ -424,27 +429,27 @@ module Hub
           else abort "invalid argument: #{arg}"
           end
         end
-        api_client.create_issue(current_project, options)
-        puts "Issue Created"
+        api_client.create_issue(project, options)
+        $stdout.puts "Issue Created"
         exit 0
       when "close"
         issue_num = args.shift
         if !!issue_num && issue_num.to_i > 0 then
-          api_client.close_issue(current_project, issue_num)
-          puts "Issue #{issue_num} closed"
+          api_client.close_issue(project, issue_num)
+          $stdout.puts "Issue #{issue_num} closed"
           exit 0
         else
           abort "usage: hub issue close <issue_number>"
         end
       when "labels"
         verbose = !!args.delete('-v')
-        labels = api_client.repo_labels(current_project).data
+        labels = api_client.repo_labels(project).data
         if verbose then
-          labels.each { |l| puts "[\##{l['color']}] #{l['name']}"}
+          labels.each { |l| $stdout.puts "[\##{l['color']}] #{l['name']}"}
         else
           out_labels = []
           labels.each { |l| out_labels << l['name'] }
-          puts out_labels.join(", ")
+          $stdout.puts out_labels.join(", ")
         end
         exit 0
       else
