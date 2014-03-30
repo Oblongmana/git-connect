@@ -164,6 +164,8 @@ module Hub
           options[:issue] = args.shift
         when '-o', '--browse'
           open_with_browser = true
+        when '-e', '--browseredit'
+          edit_in_browser = true
         else
           if url = resolve_github_url(arg) and url.project_path =~ /^issues\/(\d+)/
             options[:issue] = $1
@@ -212,7 +214,7 @@ module Hub
         exit
       end
 
-      unless options[:title] or options[:issue]
+      unless options[:title] or options[:issue] or edit_in_browser
         base_branch = "#{base_project.remote}/#{options[:base]}"
         commits = rev_list(base_branch, remote_branch).to_s.split("\n")
 
@@ -241,12 +243,20 @@ module Hub
         }
       end
 
-      pull = api_client.create_pullrequest(options)
-
-      args.push('-u') unless open_with_browser
-      browse_command(args) do
-        pull['html_url']
+      if not edit_in_browser
+        pull = api_client.create_pullrequest(options)
+      else
+        browse_command(args) do
+          'https://github.com/%s/%s/compare/%s' % [head_project.owner, head_project.name, current_branch.short_name]
+        end
       end
+
+
+      # args.push('-u') unless open_with_browser or edit_in_browser
+      # browse_command(args) do
+      #   pull['html_url']
+      # end
+      
     rescue GitHubAPI::Exceptions
       response = $!.response
       display_api_exception("creating pull request", response)
