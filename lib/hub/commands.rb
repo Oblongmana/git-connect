@@ -401,7 +401,9 @@ module Hub
           if verbose then
             $stdout.puts "\nISSUES\n======\n\n"
             issues.each_with_index do |issue,index|
-              $stdout.puts word_wrap("ISSUE: #{issue['title']}")
+              issue['title'] = 'ISSUE: ' + issue['title']
+              $stdout.puts issue['title'].length < 80 ? '-'*issue['title'].length : '-'*80
+              $stdout.puts word_wrap(issue['title'])
               $stdout.puts issue['title'].length < 80 ? '-'*issue['title'].length : '-'*80
               $stdout.puts "Issue Number:\n#{word_wrap(issue['number'].to_s,tab_size,wrap_size)}"
               $stdout.puts "Created:\n#{word_wrap(issue['created_at'],tab_size,wrap_size)}"
